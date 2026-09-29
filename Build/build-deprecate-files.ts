@@ -1,4 +1,4 @@
-import { OUTPUT_CLASH_DIR, OUTPUT_SURGE_DIR, PUBLIC_DIR } from './constants/dir';
+import { OUTPUT_SURGE_DIR, PUBLIC_DIR } from './constants/dir';
 import { compareAndWriteFile } from './lib/create-file';
 import { SpanCategory, task } from './trace';
 import path from 'node:path';
@@ -15,18 +15,19 @@ const DEPRECATED_FILES = [
 const REMOVED_FILES = [
   'Internal/chnroutes.txt',
   'List/internal/appprofile.php',
-  'Clash/domainset/steam.txt',
-  'Clash/non_ip/clash_fake_ip_filter.txt',
-  'sing-box/domainset/steam.json',
   'Modules/sukka_unlock_abema.sgmodule',
   'Modules/sukka_exclude_reservered_ip.sgmodule',
   'Modules/Rules/*.sgmodule',
-  'Internal/mihomo_nameserver_policy/*.conf'
+  'Internal/mihomo_nameserver_policy/*.conf',
+  'Internal/clash_*.yaml',
+  'Clash',
+  'sing-box',
+  'Surfboard',
+  'LegacyClashPremium'
 ];
 
 const REMOVED_FOLDERS = [
-  'List/Internal',
-  'Clash/Internal'
+  'List/Internal'
 ];
 
 export const buildDeprecateFiles = task(require.main === module, __filename)((span) => span.traceChild('create deprecated files', SpanCategory.FsWrite).traceAsyncFn(async (childSpan) => {

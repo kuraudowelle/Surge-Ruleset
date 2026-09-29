@@ -1,17 +1,7 @@
 import path from 'node:path';
 import { task } from './trace';
 import { compareAndWriteFile } from './lib/create-file';
-import { DIRECTS, LAN } from '../Source/non_ip/direct';
-import type { DNSMapping } from '../Source/non_ip/direct';
-import { DOMESTICS, DOH_BOOTSTRAP } from '../Source/non_ip/domestic';
-import { DOMESTIC_CDN } from '../Source/non_ip/domestic_cdn';
-import * as yaml from 'yaml';
-import { OUTPUT_INTERNAL_DIR, OUTPUT_MODULES_DIR } from './constants/dir';
-import { appendArrayInPlace } from 'foxts/append-array-in-place';
-import { SHARED_DESCRIPTION } from './constants/description';
-import { createGetDnsMappingRule } from './build-domestic-direct-lan-ruleset-dns-mapping-module';
-import { ClashDomainSet } from './lib/writing-strategy/clash';
-import { FileOutput } from './lib/rules/base';
+import { OUTPUT_MODULES_DIR } from './constants/dir';
 
 const HOSTNAMES = [
   // Network Detection, Captive Portal
@@ -50,71 +40,16 @@ const HOSTNAMES = [
 
 export const buildAlwaysRealIPModule = task(require.main === module, __filename)(async (span) => {
   const surge: string[] = [];
-  const clashFakeIpFilter = new FileOutput(span, 'clash_fake_ip_filter')
-    .withTitle('Sukka\'s Ruleset - Always Real IP Plus')
-    .withDescription([
-      ...SHARED_DESCRIPTION,
+
+  return compareAndWriteFile(
+    span,
+    [
+      '#!name=[Sukka] Always Real IP Plus',
+      `#!desc=Last Updated: ${new Date().toISOString()}`,
       '',
-      'Clash.Meta fake-ip-filter as ruleset'
-    ])
-    .withStrategies([
-      new ClashDomainSet('domainset')
-    ]);
-
-  // Intranet, Router Setup, and mant more
-  const dataset = [DIRECTS, LAN, DOMESTICS, DOMESTIC_CDN, DOH_BOOTSTRAP].reduce<DNSMapping[]>((acc, item) => {
-    Object.values(item).forEach((i: DNSMapping) => {
-      if (i.realip) {
-        acc.push(i);
-      }
-    });
-
-    return acc;
-  }, []);
-
-  const getDnsMappingRuleWithoutWildcard = createGetDnsMappingRule(false);
-
-  for (let i = 0, len = dataset.length; i < len; i++) {
-    const { domains } = dataset[i];
-    clashFakeIpFilter.addFromRuleset(domains.flatMap(getDnsMappingRuleWithoutWildcard));
-  }
-
-  return Promise.all([
-    compareAndWriteFile(
-      span,
-      [
-        '#!name=[Sukka] Always Real IP Plus',
-        `#!desc=Last Updated: ${new Date().toISOString()}`,
-        '',
-        '[General]',
-        `always-real-ip = %APPEND% ${HOSTNAMES.concat(surge).join(', ')}`
-      ],
-      path.resolve(OUTPUT_MODULES_DIR, 'sukka_common_always_realip.sgmodule')
-    ),
-    compareAndWriteFile(
-      span,
-      yaml.stringify(
-        {
-          dns: {
-            'fake-ip-filter': appendArrayInPlace(
-              /** clash */
-              dataset.flatMap(({ domains }) => domains.map((domain) => {
-                switch (domain[0]) {
-                  case '$':
-                    return domain.slice(1);
-                  case '+':
-                    return '+.' + domain.slice(1);
-                  default:
-                    return domain;
-                }
-              })),
-              HOSTNAMES
-            )
-          }
-        },
-        { version: '1.1' }
-      ).split('\n'),
-      path.join(OUTPUT_INTERNAL_DIR, 'clash_fake_ip_filter.yaml')
-    )
-  ]);
+      '[General]',
+      `always-real-ip = %APPEND% ${HOSTNAMES.concat(surge).join(', ')}`
+    ],
+    path.resolve(OUTPUT_MODULES_DIR, 'sukka_common_always_realip.sgmodule')
+  );
 });

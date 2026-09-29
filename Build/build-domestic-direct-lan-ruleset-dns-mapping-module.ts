@@ -10,10 +10,9 @@ import { SpanCategory, task } from './trace';
 import type { Span } from './trace';
 import { SHARED_DESCRIPTION } from './constants/description';
 import { once } from 'foxts/once';
-import * as yaml from 'yaml';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { OUTPUT_INTERNAL_DIR, OUTPUT_MODULES_DIR, OUTPUT_MODULES_RULES_DIR, SOURCE_DIR } from './constants/dir';
-import { MihomoNameserverPolicyOutput, RulesetOutput, SurgeOnlyRulesetOutput } from './lib/rules/ruleset';
+import { RulesetOutput, SurgeOnlyRulesetOutput } from './lib/rules/ruleset';
 import { $$fetch } from './lib/fetch-retry';
 
 export function createGetDnsMappingRule(allowWildcard: boolean) {
@@ -166,21 +165,6 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
           'Do not use this file in your Rule section, all entries are included in non_ip/domestic.conf already.'
         );
 
-      const mihomoOutput = new MihomoNameserverPolicyOutput(
-        span,
-        name.toLowerCase(),
-        'mihomo_nameserver_policy',
-        OUTPUT_INTERNAL_DIR
-      )
-        .withTitle(`Sukka's Ruleset - Local DNS Mapping for Mihomo NameServer Policy (${name})`)
-        .appendDescription(
-          SHARED_DESCRIPTION,
-          '',
-          'This ruleset is only used for mihomo\'s nameserver-policy feature, which',
-          'is similar to the RULE-SET referenced by sukka_local_dns_mapping.sgmodule.',
-          'Do not use this file in your Rule section, all entries are included in non_ip/domestic.conf already.'
-        );
-
       domains.forEach((domain) => {
         const isWildcard = domain.includes('*') || domain.includes('?');
         switch (domain[0]) {
@@ -188,10 +172,8 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
             const d = domain.slice(1);
             if (isWildcard) {
               surgeOutput.addDomainWildcard(d);
-              mihomoOutput.addDomainWildcard(d);
             } else {
               surgeOutput.addDomain(d);
-              mihomoOutput.addDomain(d);
             }
             break;
           }
@@ -199,10 +181,8 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
             const d = domain.slice(1);
             if (isWildcard) {
               surgeOutput.addDomainWildcard(`*.${d}`);
-              mihomoOutput.addDomainWildcard(`*.${d}`);
             } else {
               surgeOutput.addDomainSuffix(d);
-              mihomoOutput.addDomainSuffix(d);
             }
             break;
           }
@@ -210,20 +190,14 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
             if (isWildcard) {
               surgeOutput.addDomainWildcard(domain);
               surgeOutput.addDomainWildcard(`*.${domain}`);
-              mihomoOutput.addDomainWildcard(domain);
-              mihomoOutput.addDomainWildcard(`*.${domain}`);
             } else {
               surgeOutput.addDomainSuffix(domain);
-              mihomoOutput.addDomainSuffix(domain);
             }
             break;
         }
       });
 
-      return Promise.all([
-        surgeOutput.write(),
-        mihomoOutput.write()
-      ]);
+      return surgeOutput.write();
     }),
 
     compareAndWriteFile(
@@ -249,7 +223,7 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
             });
 
             if (ruleset) {
-              acc[`RULE-SET:https://ruleset.skk.moe/Modules/Rules/sukka_local_dns_mapping/${ruleset_name}.conf`] ||= `server:${dns}`;
+              acc[`RULE-SET:https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/Rules/sukka_local_dns_mapping/${ruleset_name}.conf`] ||= `server:${dns}`;
             } else {
               domains.forEach((domain) => {
                 switch (domain[0]) {
@@ -272,87 +246,6 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
         ).map(([dns, ips]) => `${dns} = ${ips}`)
       ],
       path.resolve(OUTPUT_MODULES_DIR, 'sukka_local_dns_mapping.sgmodule')
-    ),
-    compareAndWriteFile(
-      span,
-      yaml.stringify(
-        dataset.reduce<{
-          dns: { 'nameserver-policy': Record<string, string | string[]> },
-          hosts: Record<string, string | string[]>,
-          'rule-providers': Record<string, {
-            type: 'http',
-            path: `./sukkaw_ruleset/${string}`,
-            url: string,
-            behavior: 'classical',
-            format: 'text',
-            interval: number
-          }>
-        }>((acc, cur) => {
-          const { domains, dns, ruleset, ...rest } = cur[1];
-
-          if (ruleset) {
-            const ruleset_name = cur[0].toLowerCase();
-            const mihomo_ruleset_id = `mihomo_nameserver_policy_${ruleset_name}`;
-
-            if (dns) {
-              acc.dns['nameserver-policy'][`rule-set:${mihomo_ruleset_id}`] = dns;
-            }
-
-            acc['rule-providers'][mihomo_ruleset_id] = {
-              type: 'http',
-              path: `./sukkaw_ruleset/${mihomo_ruleset_id}.txt`,
-              url: `https://ruleset.skk.moe/Internal/mihomo_nameserver_policy/${ruleset_name}.txt`,
-              behavior: 'classical',
-              format: 'text',
-              interval: 43200
-            };
-          } else {
-            domains.forEach((domain) => {
-              switch (domain[0]) {
-                case '$':
-                  domain = domain.slice(1);
-                  break;
-                case '+':
-                  domain = `*.${domain.slice(1)}`;
-                  break;
-                default:
-                  domain = `+.${domain}`;
-                  break;
-              }
-
-              if (dns) {
-                acc.dns['nameserver-policy'][domain] = dns;
-              }
-            });
-          }
-
-          if ('hosts' in rest) {
-            // eslint-disable-next-line guard-for-in -- known plain object
-            for (const domain in rest.hosts) {
-              const dest = rest.hosts[domain];
-
-              if (domain in acc.hosts) {
-                if (typeof acc.hosts[domain] === 'string') {
-                  acc.hosts[domain] = [acc.hosts[domain]];
-                }
-                appendArrayInPlace(acc.hosts[domain], dest);
-              } else if (dest.length === 1) {
-                acc.hosts[domain] = dest[0];
-              } else {
-                acc.hosts[domain] = dest;
-              }
-            }
-          }
-
-          return acc;
-        }, {
-          dns: { 'nameserver-policy': {} },
-          'rule-providers': {},
-          hosts: {}
-        }),
-        { version: '1.1' }
-      ).split('\n'),
-      path.join(OUTPUT_INTERNAL_DIR, 'clash_nameserver_policy.yaml')
     ),
     compareAndWriteFile(
       span,
@@ -442,21 +335,6 @@ async function buildLANCacheRuleset(span: Span) {
       'Do not use this file in your Rule section.'
     );
 
-  const mihomoOutput = new MihomoNameserverPolicyOutput(
-    span,
-    'lancache',
-    'mihomo_nameserver_policy',
-    OUTPUT_INTERNAL_DIR
-  )
-    .withTitle('Sukka\'s Ruleset - Local DNS Mapping for Mihomo NameServer Policy (lancache)')
-    .appendDescription(
-      SHARED_DESCRIPTION,
-      '',
-      'This ruleset is only used for mihomo\'s nameserver-policy feature, which',
-      'is similar to the RULE-SET referenced by sukka_local_dns_mapping.sgmodule.',
-      'Do not use this file in your Rule section.'
-    );
-
   for (let i = 0, len = allDomains.length; i < len; i++) {
     const domain = allDomains[i];
 
@@ -465,23 +343,17 @@ async function buildLANCacheRuleset(span: Span) {
       if (domain.startsWith('*.') && !domain.slice(2).includes('*')) {
         const domainSuffix = domain.slice(2);
         surgeOutput.addDomainSuffix(domainSuffix);
-        mihomoOutput.addDomainSuffix(domainSuffix);
         continue;
       }
 
       surgeOutput.addDomainWildcard(domain);
-      mihomoOutput.addDomainWildcard(domain);
       continue;
     }
 
     surgeOutput.addDomain(domain);
-    mihomoOutput.addDomain(domain);
   }
 
   childSpan.stop();
 
-  return Promise.all([
-    surgeOutput.write(),
-    mihomoOutput.write()
-  ]);
+  return surgeOutput.write();
 }
