@@ -17,6 +17,7 @@ const REMOVED_FILES = [
   'List/internal/appprofile.php',
   'Modules/sukka_unlock_abema.sgmodule',
   'Modules/sukka_exclude_reservered_ip.sgmodule',
+  'List/ip/teleproto.conf',
   'Modules/Rules/*.sgmodule',
   'Internal/mihomo_nameserver_policy/*.conf',
   'Internal/clash_*.yaml',

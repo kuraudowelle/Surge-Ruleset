@@ -357,11 +357,11 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/chi
 
 ## Surge Module List
 
-- URL Rewrite: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_url_rewrite.sgmodule`
+- URL Redirect: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_url_redirect.sgmodule`
+- URL Redirect (Minimum): `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_url_redirect_minimum.sgmodule`
 - Surge Network Test Domain: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_surge_network_test_domain.sgmodule`
 - MITM Hostnames: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_mitm_hostnames.sgmodule`
 - MITM All Hostnames: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_mitm_all_hostnames.sgmodule`
-- Exclude Reserved IP from Surge VIF: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_exclude_reservered_ip.sgmodule`
 - Common Always Real IP Hostnames: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_common_always_realip.sgmodule`
 - Redirect Google CN to Google: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/google_cn_307.sgmodule`
 
