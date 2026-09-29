@@ -183,6 +183,22 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/apple_cn.conf,DIRECT
 ```
 
+#### Microsoft Teams
+
+- Automatically generated
+- Data source: Microsoft's official [Microsoft 365 endpoints web service](https://learn.microsoft.com/en-us/microsoft-365/enterprise/microsoft-365-ip-web-service) (service area `Skype`, which is Microsoft Teams)
+- Place these before the Microsoft ruleset, otherwise the broader `microsoft.conf` matches first
+
+```ini
+# Non IP
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/teams.conf,[Replace with your policy]
+```
+
+```ini
+# IP
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/teams.conf,[Replace with your policy]
+```
+
 #### Microsoft CDN
 
 - Automatically generated
