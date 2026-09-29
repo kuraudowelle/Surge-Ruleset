@@ -9,34 +9,36 @@ export interface RunnerGeoIP {
   asOrg: string
 }
 
-/**
- * The network Cloudflare's own speed test shows to its visitor: the client IP and the
- * ASN and location Cloudflare knows for it (what a Worker gets in `request.cf`).
- */
-const CLOUDFLARE_META_URL = 'https://speed.cloudflare.com/meta';
+/** Answers with the geo data of the address the request comes from, no token needed */
+const IPINFO_URL = 'https://ipinfo.io/json';
 
-async function fetchCloudflareMeta(): Promise<unknown> {
-  const res = await $$fetch(CLOUDFLARE_META_URL);
+async function fetchIpinfo(): Promise<unknown> {
+  const res = await $$fetch(IPINFO_URL);
   return res.json();
 }
 
-export function parseRunnerGeoIP(meta: unknown): RunnerGeoIP | null {
-  if (typeof meta !== 'object' || meta === null) {
+// ipinfo.io writes the network as "AS8075 Microsoft Corporation"
+const rOrg = /^AS(\d+)(?: (.*))?$/;
+
+export function parseRunnerGeoIP(info: unknown): RunnerGeoIP | null {
+  if (typeof info !== 'object' || info === null) {
     return null;
   }
 
-  const { clientIp, country, region, city, asn, asOrganization } = meta as Record<string, unknown>;
-  if (typeof clientIp !== 'string' || clientIp === '') {
+  const { ip, country, region, city, org } = info as Record<string, unknown>;
+  if (typeof ip !== 'string' || ip === '') {
     return null;
   }
+
+  const network = typeof org === 'string' ? rOrg.exec(org) : null;
 
   return {
-    ip: clientIp,
+    ip,
     country: typeof country === 'string' ? country : '',
     region: typeof region === 'string' ? region : '',
     city: typeof city === 'string' ? city : '',
-    asn: Number(asn) || 0,
-    asOrg: typeof asOrganization === 'string' ? asOrganization : ''
+    asn: network ? Number(network[1]) : 0,
+    asOrg: network?.[2] ?? ''
   };
 }
 
@@ -47,9 +49,9 @@ export function parseRunnerGeoIP(meta: unknown): RunnerGeoIP | null {
  *
  * Returns `null` on any failure so it never aborts the actual domain check.
  */
-export async function getRunnerGeoIP(fetchMeta: () => Promise<unknown> = fetchCloudflareMeta): Promise<RunnerGeoIP | null> {
+export async function getRunnerGeoIP(fetchInfo: () => Promise<unknown> = fetchIpinfo): Promise<RunnerGeoIP | null> {
   try {
-    return parseRunnerGeoIP(await fetchMeta());
+    return parseRunnerGeoIP(await fetchInfo());
   } catch {
     return null;
   }
