@@ -298,7 +298,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 #### chnroute CIDR
 
 - Automatically generated
-- IPv4 [raw data](https://github.com/misakaio/chnroutes2) is published by Misaka Network, Inc. under the [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) license. It is reprocessed to add and merge some domestic (mainland China) segments whose BGP routes Misaka Network, Inc. does not receive, and to exclude IP segments announced in Hong Kong that Misaka Network, Inc. collected by mistake (usually announced by China Mobile International, CMI)
+- IPv4 [raw data](https://github.com/misakaio/chnroutes2) is published by Misaka Network, Inc. under the [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) license. The Hong Kong segments announced by China Mobile International (CMI) that Misaka Network, Inc. collected by mistake (`223.118.0.0/15` and `223.120.0.0/15`) are excluded
 - IPv6 raw data is published by [gaoyifan/china-operator-ip](https://github.com/gaoyifan/china-operator-ip) under the MIT license
 
 ```ini
