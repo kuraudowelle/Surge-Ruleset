@@ -1,0 +1,56 @@
+name: Temporary probe of the geo-IP source
+on:
+  push:
+    branches:
+      - claude/project-thread-ib33qm
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe (runner ${{ matrix.shard }})
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/setup@v2
+        with:
+          install: false
+          cache: true
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".node-version"
+          package-manager-cache: false
+      - run: pnpm config set --location=global minimumReleaseAge 0
+      - run: pnpm install
+      - name: Raw answers of the candidate sources
+        run: |
+          for u in https://speed.cloudflare.com/meta https://www.cloudflare.com/cdn-cgi/trace https://ipinfo.io/json; do
+            echo "==== $u"
+            curl -sS -m 30 -A node-fetch -D /tmp/h.txt -o /tmp/b.txt "$u" || echo "curl failed"
+            grep -iE '^(HTTP|content-type|cache-control|server|cf-ray|access-control)' /tmp/h.txt || true
+            head -c 1200 /tmp/b.txt; echo
+          done
+      - name: The real function, with the build's own HTTP client
+        run: |
+          cat > tmp-geoip.ts <<'EOF'
+          import process from 'node:process';
+          import { getRunnerGeoIP } from './Build/lib/get-runner-geoip';
+
+          (async () => {
+            const geo = await getRunnerGeoIP();
+            console.log(JSON.stringify(geo));
+            console.log(geo ? `${geo.ip} — ${geo.city}, ${geo.region}, ${geo.country} (AS${geo.asn} ${geo.asOrg})` : 'unknown (geoip lookup failed)');
+            process.exit(0);
+          })();
+          EOF
+          pnpm run node tmp-geoip.ts
