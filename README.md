@@ -10,6 +10,8 @@ If you are using a commercial public proxy service, be sure to read the service 
 
 The ruleset files are served from this repository through `https://raw.githubusercontent.com/kuraudowelle/Surge/master/`. You can also get the source code of this project and build the ruleset files yourself.
 
+The built files (`List/`, `Modules/`, `Mock/` and `Internal/`) are rebuilt by the [Build workflow](.github/workflows/main.yml) twice a day (05:17 and 17:17 UTC) and on every push to `master`, and the workflow commits the result back to `master`. Edit the sources in `Source/` and `Build/`, not the generated files. Hand-written modules and mocks live next to the generated ones in `Modules/` and `Mock/`. To delete a published file that is no longer generated, add it to `REMOVED_FILES` in [`build-deprecate-files.ts`](Build/build-deprecate-files.ts).
+
 ## Ruleset List
 
 - **Surge (Mac/iOS/tvOS)**: Surge optimizes all types of rules to varying degrees

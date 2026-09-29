@@ -40,8 +40,14 @@ async function copyDirContents(srcDir: string, destDir: string, promises: Array<
     const src = path.join(srcDir, entry.name);
     const dest = path.join(destDir, entry.name);
     if (entry.isDirectory()) {
-      console.warn(picocolors.red('[build public] cant copy directory'), src);
-    } else {
+      // built output like Modules/Rules is already in the public directory
+      if (!fs.existsSync(dest)) {
+        console.warn(picocolors.red('[build public] cant copy directory'), src);
+      }
+    } else if (!fs.existsSync(dest)) {
+      // Modules/ and Mock/ in the repo hold hand-written files next to the previously built output, so
+      // anything that is already in the public directory (seeded from the repo, then refreshed by this
+      // build) must not be overwritten with the committed, possibly stale, copy
       promises.push(fsp.copyFile(src, dest, fs.constants.COPYFILE_FICLONE));
     }
   }

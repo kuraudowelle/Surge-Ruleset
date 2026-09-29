@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 import tldts from 'tldts-experimental';
@@ -69,6 +70,8 @@ const getLibrespeedBackendsPromise = $$fetch('https://speedtest-net-servers.cdn.
     return prev;
   }, []));
 
+const PREVIOUS_OUTPUT = path.resolve(OUTPUT_SURGE_DIR, 'domainset/speedtest.conf');
+
 export const buildSpeedtestDomainSet = task(require.main === module, __filename)(
   async (span) => new DomainsetOutput(span, 'speedtest')
     .withTitle('Sukka\'s Ruleset - Speedtest Domains')
@@ -78,7 +81,8 @@ export const buildSpeedtestDomainSet = task(require.main === module, __filename)
       'This file contains common speedtest endpoints.'
     )
     .addFromDomainset(readFileIntoProcessedArray(path.resolve(SOURCE_DIR, 'domainset/speedtest.conf')))
-    .addFromDomainset(readFileIntoProcessedArray(path.resolve(OUTPUT_SURGE_DIR, 'domainset/speedtest.conf')))
+    // this list keeps the domains of previous builds, there is nothing to carry over on the very first build
+    .addFromDomainset(fs.existsSync(PREVIOUS_OUTPUT) ? readFileIntoProcessedArray(PREVIOUS_OUTPUT) : [])
     .bulkAddDomain(await span.traceChildPromise('get speedtest.net servers', getSpeedtestHostsGroupsPromise, SpanCategory.Network))
     .bulkAddDomain(await span.traceChildPromise('get librespeed backends', getLibrespeedBackendsPromise, SpanCategory.Network))
     .write()
