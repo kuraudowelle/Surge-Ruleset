@@ -2,7 +2,6 @@ import process from 'node:process';
 import os from 'node:os';
 import fs from 'node:fs';
 
-import { downloadPreviousBuild } from './download-previous-build';
 import { buildCommon } from './build-common';
 import { buildRejectIPList } from './build-reject-ip-list';
 import { buildAppleCdn } from './build-apple-cdn';
@@ -94,29 +93,26 @@ const buildFinishedLock = path.join(ROOT_DIR, '.BUILD_FINISHED');
       await import('why-is-node-running');
     }
 
-    const downloadPreviousBuildPromise = downloadPreviousBuild();
-
     const [traces, telegramTraces]: [TraceResult[], TraceResult[]] = await Promise.all([
       Promise.all([
-        downloadPreviousBuildPromise,
-        downloadPreviousBuildPromise.then(() => buildCommon()),
-        downloadPreviousBuildPromise.then(() => buildRejectIPList()),
-        downloadPreviousBuildPromise.then(() => buildAppleCdn()),
-        downloadPreviousBuildPromise.then(() => buildAICIDR()),
-        downloadPreviousBuildPromise.then(() => farm.buildCdnDownloadConf()),
-        downloadPreviousBuildPromise.then(() => buildRejectDomainSet()),
-        downloadPreviousBuildPromise.then(() => buildChnCidr()),
-        downloadPreviousBuildPromise.then(() => buildSpeedtestDomainSet()),
-        downloadPreviousBuildPromise.then(() => buildDomesticRuleset()),
-        downloadPreviousBuildPromise.then(() => buildGlobalRuleset()),
-        downloadPreviousBuildPromise.then(() => buildRedirectModule()),
-        downloadPreviousBuildPromise.then(() => buildAlwaysRealIPModule()),
-        downloadPreviousBuildPromise.then(() => buildStreamService()),
-        downloadPreviousBuildPromise.then(() => farm.buildMicrosoftCdn()),
-        downloadPreviousBuildPromise.then(() => buildCloudMounterRules()),
+        buildCommon(),
+        buildRejectIPList(),
+        buildAppleCdn(),
+        buildAICIDR(),
+        farm.buildCdnDownloadConf(),
+        buildRejectDomainSet(),
+        buildChnCidr(),
+        buildSpeedtestDomainSet(),
+        buildDomesticRuleset(),
+        buildGlobalRuleset(),
+        buildRedirectModule(),
+        buildAlwaysRealIPModule(),
+        buildStreamService(),
+        farm.buildMicrosoftCdn(),
+        buildCloudMounterRules(),
         downloadMockAssets()
       ]),
-      downloadPreviousBuildPromise.then(() => buildTelegram())
+      buildTelegram()
     ]);
 
     appendArrayInPlace(traces, telegramTraces);

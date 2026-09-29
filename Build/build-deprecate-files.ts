@@ -46,8 +46,7 @@ export const buildDeprecateFiles = task(require.main === module, __filename)((sp
     ];
 
     promises.push(
-      compareAndWriteFile(childSpan, content, path.resolve(OUTPUT_SURGE_DIR, `${filePath}.conf`)),
-      compareAndWriteFile(childSpan, content, path.resolve(OUTPUT_CLASH_DIR, `${filePath}.txt`))
+      compareAndWriteFile(childSpan, content, path.resolve(OUTPUT_SURGE_DIR, `${filePath}.conf`))
     );
   }
 
