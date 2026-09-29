@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "lib": ["ESNext", "ESNext.Iterator"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "noEmit": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "./Source/**/*.js",
+    "./Build/**/*.ts",
+    "./Source/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "public"
+  ]
+}

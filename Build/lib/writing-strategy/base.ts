@@ -1,0 +1,145 @@
+import { isCI } from 'ci-info';
+import type { Span } from '../../trace';
+import { calculateContentHash } from '../content-hash';
+import { compareAndWriteFile, compareAndWriteFileInWorker, writeFileLines, writeFileLinesSync } from '../create-file';
+
+/**
+ * The class is not about holding rule data, instead it determines how the
+ * date is written to a file.
+ */
+export abstract class BaseWriteStrategy {
+  public abstract readonly name: string;
+
+  /**
+   * Sometimes a ruleset will create extra files (e.g. reject-url-regex w/ mitm.sgmodule),
+   * and doesn't share the same filename and id. This property is used to overwrite the filename.
+   */
+  public overwriteFilename: string | null = null;
+  public withFilename(filename: string) {
+    this.overwriteFilename = filename;
+    return this;
+  }
+
+  public abstract readonly type: 'domainset' | 'non_ip' | 'ip' | (string & {});
+
+  abstract readonly fileExtension: 'conf' | 'txt' | 'json' | 'sgmodule'; /* | (string & {}) */
+
+  constructor(public readonly outputDir: string) {}
+
+  protected abstract result: string[] | null;
+
+  /**
+   * Whether the output has no volatile metadata (e.g. "Last Updated") to preserve,
+   * so on CI the previous file can simply be overwritten without comparison (the
+   * comparison would only serve to reduce SSD wear, which CI doesn't care about).
+   * Only enable this when withPadding emits neither a banner nor any date.
+   */
+  protected readonly skipCompareOnCI: boolean = false;
+
+  abstract writeDomain(domain: string): void;
+  abstract writeDomainSuffix(domain: string): void;
+  abstract writeDomainKeywords(keyword: Set<string>): void;
+  abstract writeDomainWildcard(wildcard: string): void;
+  abstract writeUserAgents(userAgent: Set<string>): void;
+  abstract writeProcessNames(processName: Set<string>): void;
+  abstract writeProcessPaths(processPath: Set<string>): void;
+  abstract writeUrlRegexes(urlRegex: Set<string>): void;
+  abstract writeIpCidrs(ipCidr: string[], noResolve: boolean): void;
+  abstract writeIpCidr6s(ipCidr6: string[], noResolve: boolean): void;
+  abstract writeGeoip(geoip: Set<string>, noResolve: boolean): void;
+  abstract writeIpAsns(asns: Set<string>, noResolve: boolean): void;
+  abstract writeSourceIpCidrs(sourceIpCidr: string[]): void;
+  abstract writeSourcePorts(port: Set<string>): void;
+  abstract writeDestinationPorts(port: Set<string>): void;
+  abstract writeProtocols(protocol: Set<string>): void;
+  abstract writeOtherRules(rule: string[]): void;
+
+  protected abstract withPadding(title: string, description: string[] | readonly string[], date: Date, content: string[], contentHash: string | null): string[];
+
+  public output(
+    span: Span,
+    title: string,
+    description: string[] | readonly string[],
+    date: Date,
+    filePath: string
+  ): void | Promise<void> {
+    const result = this.result;
+    if (!result) {
+      return;
+    }
+
+    // Without volatile metadata to preserve, the compare-before-write only serves
+    // to reduce SSD wear -- irrelevant on CI, so skip hashing and comparison alike.
+    if (isCI && this.skipCompareOnCI) {
+      return writeFileLines(
+        span,
+        this.withPadding(title, description, date, result, null),
+        filePath
+      );
+    }
+
+    // The hash covers the real content (title, description and rules) but not the
+    // volatile date, so compareAndWriteFile can bail out by only reading the head
+    // of the previous output. Strategies whose withPadding doesn't embed the marker
+    // (e.g. JSON output) simply fall back to the full comparison.
+    const contentHash = calculateContentHash(title, description, result);
+
+    return compareAndWriteFile(
+      span,
+      this.withPadding(
+        title,
+        description,
+        date,
+        result,
+        contentHash
+      ),
+      filePath,
+      contentHash
+    );
+  };
+
+  /**
+   * Worker-thread twin of {@link output}: identical comparison, but the write is
+   * synchronous since blocking a dedicated worker costs nothing.
+   */
+  public async outputInWorker(
+    span: Span,
+    title: string,
+    description: string[] | readonly string[],
+    date: Date,
+    filePath: string
+  ): Promise<void> {
+    const result = this.result;
+    if (!result) {
+      return;
+    }
+
+    if (isCI && this.skipCompareOnCI) {
+      writeFileLinesSync(
+        span,
+        this.withPadding(title, description, date, result, null),
+        filePath
+      );
+      return;
+    }
+
+    const contentHash = calculateContentHash(title, description, result);
+
+    await compareAndWriteFileInWorker(
+      span,
+      this.withPadding(
+        title,
+        description,
+        date,
+        result,
+        contentHash
+      ),
+      filePath,
+      contentHash
+    );
+  }
+
+  public get content() {
+    return this.result;
+  }
+}

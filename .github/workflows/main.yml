@@ -1,0 +1,176 @@
+name: Build
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  schedule:
+    - cron: "17 5 * * *" # Runs at 05:17 UTC
+    - cron: "17 17 * * *" # Runs at 17:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: smorimoto/tune-github-hosted-runner-network@v1
+        # https://github.com/actions/runner-images/issues/1187
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Get current date
+        id: date
+        run: |
+          echo "date=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+          echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
+          echo "month=$(date +'%m')" >> $GITHUB_OUTPUT
+          echo "day=$(date +'%d')" >> $GITHUB_OUTPUT
+          echo "hour=$(date +'%H')" >> $GITHUB_OUTPUT
+          echo "minute=$(date +'%M')" >> $GITHUB_OUTPUT
+          echo "second=$(date +'%S')" >> $GITHUB_OUTPUT
+      # The build reuses the previous output: files whose content did not change keep their
+      # `Last Updated` header and the speedtest list keeps the domains of earlier builds.
+      # The previous output is what the deploy job committed to master (nothing on the very first run).
+      - name: Seed public directory with the previous build
+        run: |
+          mkdir -p public
+          for dir in List Modules Mock Internal; do
+            if [ -d "$dir" ]; then
+              cp -a "$dir" public/
+            fi
+          done
+      # Restore cache.db in the background, while the Node.js toolchain is set up in the foreground
+      - name: Restore cache.db
+        uses: actions/cache/restore@v6
+        id: cache-db-restore
+        background: true
+        with:
+          path: |
+            .cache
+          key: ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:${{ steps.date.outputs.minute }}:${{ steps.date.outputs.second }}
+          # If source files changed but packages didn't, rebuild from a prior cache.
+          restore-keys: |
+            ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:${{ steps.date.outputs.minute }}:
+            ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:
+            ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
+            ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-
+            ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-
+            ${{ runner.os }}-v3-
+      # Set up pnpm and Node.js in parallel; both must finish before pnpm runs.
+      - name: Set up pnpm
+        id: setup_pnpm
+        uses: pnpm/setup@v2
+        background: true
+        with:
+          install: false
+          cache: true
+      - name: Set up Node.js
+        id: setup_node
+        uses: actions/setup-node@v6
+        background: true
+        with:
+          node-version-file: ".node-version"
+          package-manager-cache: false
+      - wait: [setup_pnpm, setup_node]
+      - run: pnpm config set --location=global minimumReleaseAge 0
+      - run: pnpm install
+      # Foreground pnpm + Node.js setup complete, ensure cache.db is ready
+      - wait: cache-db-restore
+      - run: pnpm run build
+      - name: Pre-deploy check
+        # If the public directory doesn't exist, the build should fail.
+        # If the public directory is empty, the build should fail.
+        run: |
+          if [ ! -d public ]; then
+            echo "public directory not found"
+            exit 1
+          fi
+          if [ ! "$(ls -A public)" ]; then
+            echo "public directory is empty"
+            exit 1
+          fi
+          if [ ! -f .BUILD_FINISHED ]; then
+            echo ".BUILD_FINISHED not found"
+            exit 1
+          fi
+          for file in public/List/domainset/reject.conf public/List/non_ip/reject.conf; do
+            if [ ! -s "$file" ]; then
+              echo "$file not found or empty"
+              exit 1
+            fi
+          done
+          echo "public directory is ready: public"
+      # Upload artifact and save cache.db in parallel
+      - uses: actions/upload-artifact@v7
+        id: upload_build_artifact
+        background: true
+        with:
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
+          path: public
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 4
+          include-hidden-files: false
+      - name: Cache cache.db
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            .cache
+          key: ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:${{ steps.date.outputs.minute }}:${{ steps.date.outputs.second }}
+      - wait: upload_build_artifact
+
+  deploy:
+    needs:
+      - build
+    name: Deploy
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
+          path: public
+      # The built rules are committed to master next to the source, so that raw.githubusercontent.com
+      # serves them (List/, Modules/, Mock/ and Internal/). Commits made with the workflow token do
+      # not start another workflow run, [skip ci] is only there to make that explicit.
+      - name: Commit build output to master
+        run: |
+          for dir in List Modules Mock Internal; do
+            if [ -d "public/$dir" ]; then
+              rm -rf "$dir"
+              cp -a "public/$dir" "$dir"
+            fi
+          done
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all List Modules Mock Internal
+          if git diff --cached --quiet; then
+            echo "The built rules did not change"
+            exit 0
+          fi
+          git --no-pager diff --cached --stat | tail -n 1
+          git commit -m "build: update rules from ${GITHUB_SHA::7} [skip ci]"
+
+          for attempt in 1 2 3; do
+            if git push origin HEAD:master; then
+              exit 0
+            fi
+            echo "Push failed (attempt ${attempt}), rebasing onto the latest master"
+            git pull --rebase origin master
+          done
+          echo "Could not push the built rules to master"
+          exit 1

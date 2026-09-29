@@ -1,0 +1,359 @@
+// @ts-check
+import path from 'node:path';
+import { DOMESTICS, DOH_BOOTSTRAP, AdGuardHomeDNSMapping } from '../Source/non_ip/domestic';
+import { DOMESTIC_CDN } from '../Source/non_ip/domestic_cdn';
+import { DIRECTS, HOSTS, LAN } from '../Source/non_ip/direct';
+import type { DNSMapping } from '../Source/non_ip/direct';
+import { fetchRemoteTextLines, readFileIntoProcessedArray } from './lib/fetch-text-by-line';
+import { compareAndWriteFile } from './lib/create-file';
+import { SpanCategory, task } from './trace';
+import type { Span } from './trace';
+import { SHARED_DESCRIPTION } from './constants/description';
+import { once } from 'foxts/once';
+import { appendArrayInPlace } from 'foxts/append-array-in-place';
+import { OUTPUT_INTERNAL_DIR, OUTPUT_MODULES_DIR, OUTPUT_MODULES_RULES_DIR, SOURCE_DIR } from './constants/dir';
+import { RulesetOutput, SurgeOnlyRulesetOutput } from './lib/rules/ruleset';
+import { $$fetch } from './lib/fetch-retry';
+
+export function createGetDnsMappingRule(allowWildcard: boolean) {
+  const hasWildcard = (domain: string) => {
+    if (domain.includes('*') || domain.includes('?')) {
+      if (!allowWildcard) {
+        throw new TypeError(`Wildcard domain is not supported: ${domain}`);
+      }
+      return true;
+    }
+
+    return false;
+  };
+
+  return (domain: string): string[] => {
+    const results: string[] = [];
+    if (domain[0] === '$') {
+      const d = domain.slice(1);
+      if (hasWildcard(domain)) {
+        results.push(`DOMAIN-WILDCARD,${d}`);
+      } else {
+        results.push(`DOMAIN,${d}`);
+      }
+    } else if (domain[0] === '+') {
+      const d = domain.slice(1);
+      if (hasWildcard(domain)) {
+        results.push(`DOMAIN-WILDCARD,*.${d}`);
+      } else {
+        results.push(`DOMAIN-SUFFIX,${d}`);
+      }
+    } else if (hasWildcard(domain)) {
+      results.push(`DOMAIN-WILDCARD,${domain}`, `DOMAIN-WILDCARD,*.${domain}`);
+    } else {
+      results.push(`DOMAIN-SUFFIX,${domain}`);
+    }
+
+    return results;
+  };
+}
+
+export const getDomesticCdnDomainsRulesetPromise = once(async () => {
+  const domesticCdn = await readFileIntoProcessedArray(path.join(SOURCE_DIR, 'non_ip/domestic_cdn.conf'));
+  const getDnsMappingRuleWithWildcard = createGetDnsMappingRule(true);
+
+  Object.values(DOMESTIC_CDN).forEach(({ domains }) => {
+    appendArrayInPlace(domesticCdn, domains.flatMap(getDnsMappingRuleWithWildcard));
+  });
+
+  return domesticCdn;
+});
+
+export const getDomesticAndDirectDomainsRulesetPromise = once(async () => {
+  const domestics = await readFileIntoProcessedArray(path.join(SOURCE_DIR, 'non_ip/domestic.conf'));
+  const directs = await readFileIntoProcessedArray(path.resolve(SOURCE_DIR, 'non_ip/direct.conf'));
+  const lans: string[] = [];
+
+  const getDnsMappingRuleWithWildcard = createGetDnsMappingRule(true);
+
+  [DOH_BOOTSTRAP, DOMESTICS].forEach((item) => {
+    Object.values(item).forEach(({ domains }) => {
+      appendArrayInPlace(domestics, domains.flatMap(getDnsMappingRuleWithWildcard));
+    });
+  });
+
+  // Keep legacy subscriptions inclusive of the CDN exceptions.
+  appendArrayInPlace(domestics, await getDomesticCdnDomainsRulesetPromise());
+
+  Object.values(DIRECTS).forEach(({ domains }) => {
+    appendArrayInPlace(directs, domains.flatMap(getDnsMappingRuleWithWildcard));
+  });
+
+  Object.values(LAN).forEach(({ domains }) => {
+    appendArrayInPlace(directs, domains.flatMap(getDnsMappingRuleWithWildcard));
+    // backward compatible, add lan.conf
+    appendArrayInPlace(lans, domains.flatMap(getDnsMappingRuleWithWildcard));
+  });
+
+  return [domestics, directs, lans] as const;
+});
+
+export const buildDomesticRuleset = task(require.main === module, __filename)(async (span) => {
+  const [domestics, directs, lans] = await getDomesticAndDirectDomainsRulesetPromise();
+  const domesticCdn = await getDomesticCdnDomainsRulesetPromise();
+
+  // Preserve existing provider IDs, and namespace CDN providers so the same
+  // provider can appear in both sources without overwriting its ruleset or DNS policy.
+  const domesticMappings = Object.entries(DOMESTIC_CDN).reduce<Record<string, DNSMapping>>((mappings, [name, mapping]) => {
+    mappings[`DOMESTIC_CDN_${name}`] = mapping;
+    return mappings;
+  }, { ...DOMESTICS });
+
+  const dataset: Array<[name: string, mapping: DNSMapping]> = ([DOH_BOOTSTRAP, domesticMappings, DIRECTS, LAN, HOSTS] as const).flatMap(Object.entries);
+
+  return Promise.all([
+    new RulesetOutput(span, 'domestic', 'non_ip')
+      .withTitle('Sukka\'s Ruleset - Domestic Domains')
+      .appendDescription(
+        SHARED_DESCRIPTION,
+        '',
+        'This file contains known addresses that are avaliable in the Mainland China.'
+      )
+      .addFromRuleset(domestics)
+      .write(),
+    new RulesetOutput(span, 'domestic_cdn', 'non_ip')
+      .withTitle('Sukka\'s Ruleset - Domestic CDN Domains')
+      .appendDescription(
+        SHARED_DESCRIPTION,
+        '',
+        'This file contains CDN domains of domestic services that have somewhat optimal performance both in China and abroad.',
+        'All entries are included in the domestic ruleset as well.'
+      )
+      .addFromRuleset(domesticCdn)
+      .write(),
+    new RulesetOutput(span, 'direct', 'non_ip')
+      .withTitle('Sukka\'s Ruleset - Direct Rules')
+      .appendDescription(
+        SHARED_DESCRIPTION,
+        '',
+        'This file contains domains and process that should not be proxied.'
+      )
+      .addFromRuleset(directs)
+      .write(),
+    new RulesetOutput(span, 'lan', 'non_ip')
+      .withTitle('Sukka\'s Ruleset - LAN')
+      .appendDescription(
+        SHARED_DESCRIPTION,
+        '',
+        'This file includes rules for LAN DOMAIN and reserved TLDs.'
+      )
+      .addFromRuleset(lans)
+      .write(),
+
+    buildLANCacheRuleset(span),
+    ...dataset.map(([name, { ruleset, domains }]) => {
+      if (!ruleset) {
+        return;
+      }
+
+      const surgeOutput = new SurgeOnlyRulesetOutput(
+        span,
+        name.toLowerCase(),
+        'sukka_local_dns_mapping',
+        OUTPUT_MODULES_RULES_DIR
+      )
+        .withTitle(`Sukka's Ruleset - Local DNS Mapping (${name})`)
+        .appendDescription(
+          SHARED_DESCRIPTION,
+          '',
+          'This is an internal rule that is only referenced by sukka_local_dns_mapping.sgmodule',
+          'Do not use this file in your Rule section, all entries are included in non_ip/domestic.conf already.'
+        );
+
+      domains.forEach((domain) => {
+        const isWildcard = domain.includes('*') || domain.includes('?');
+        switch (domain[0]) {
+          case '$': {
+            const d = domain.slice(1);
+            if (isWildcard) {
+              surgeOutput.addDomainWildcard(d);
+            } else {
+              surgeOutput.addDomain(d);
+            }
+            break;
+          }
+          case '+': {
+            const d = domain.slice(1);
+            if (isWildcard) {
+              surgeOutput.addDomainWildcard(`*.${d}`);
+            } else {
+              surgeOutput.addDomainSuffix(d);
+            }
+            break;
+          }
+          default:
+            if (isWildcard) {
+              surgeOutput.addDomainWildcard(domain);
+              surgeOutput.addDomainWildcard(`*.${domain}`);
+            } else {
+              surgeOutput.addDomainSuffix(domain);
+            }
+            break;
+        }
+      });
+
+      return surgeOutput.write();
+    }),
+
+    compareAndWriteFile(
+      span,
+      [
+        '#!name=[Sukka] Local DNS Mapping',
+        `#!desc=Last Updated: ${new Date().toISOString()}`,
+        '',
+        '[Host]',
+        ...Object.entries(
+          // I use an object to deduplicate the domains
+          // Otherwise I could just construct an array directly
+          dataset.reduce<Record<string, string>>((acc, cur) => {
+            const ruleset_name = cur[0].toLowerCase();
+            const { domains, dns, hosts, ruleset } = cur[1];
+
+            if (dns == null) {
+              return acc;
+            }
+
+            Object.entries(hosts).forEach(([dns, ips]) => {
+              acc[dns] ||= ips.join(', ');
+            });
+
+            if (ruleset) {
+              acc[`RULE-SET:https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Modules/Rules/sukka_local_dns_mapping/${ruleset_name}.conf`] ||= `server:${dns}`;
+            } else {
+              domains.forEach((domain) => {
+                switch (domain[0]) {
+                  case '$':
+                    acc[domain.slice(1)] ||= `server:${dns}`;
+                    break;
+                  case '+':
+                    acc[`*.${domain.slice(1)}`] ||= `server:${dns}`;
+                    break;
+                  default:
+                    acc[domain] ||= `server:${dns}`;
+                    acc[`*.${domain}`] ||= `server:${dns}`;
+                    break;
+                }
+              });
+            }
+
+            return acc;
+          }, {})
+        ).map(([dns, ips]) => `${dns} = ${ips}`)
+      ],
+      path.resolve(OUTPUT_MODULES_DIR, 'sukka_local_dns_mapping.sgmodule')
+    ),
+    compareAndWriteFile(
+      span,
+      [
+        '# Local DNS Mapping for AdGuard Home',
+        'https://doh.pub/dns-query',
+        'https://dns.alidns.com/dns-query',
+        '[//]udp://10.10.1.1:53',
+        ...(([domesticMappings, DIRECTS, LAN, HOSTS] as const).flatMap(Object.values) as DNSMapping[]).flatMap(({ domains, dns: _dns }) => domains.flatMap((domain) => {
+          if (!_dns) {
+            return [];
+          }
+
+          let dns;
+          if (_dns in AdGuardHomeDNSMapping) {
+            dns = AdGuardHomeDNSMapping[_dns as keyof typeof AdGuardHomeDNSMapping].join(' ');
+          } else {
+            console.warn(`Unknown DNS "${_dns}" not in AdGuardHomeDNSMapping`);
+            dns = _dns;
+          }
+
+          // if (
+          //   // AdGuard Home has built-in AS112 / private PTR handling
+          //   domain.endsWith('.arpa')
+          //   // Ignore simple hostname
+          //   || !domain.includes('.')
+          // ) {
+          //   return [];
+          // }
+          if (domain[0] === '$') {
+            return [
+              `[/${domain.slice(1)}/]${dns}`
+            ];
+          }
+          if (domain[0] === '+') {
+            return [
+              `[/${domain.slice(1)}/]${dns}`
+            ];
+          }
+          return [
+            `[/${domain}/]${dns}`
+          ];
+        }))
+      ],
+      path.resolve(OUTPUT_INTERNAL_DIR, 'dns_mapping_adguardhome.conf')
+    )
+  ]);
+});
+
+async function buildLANCacheRuleset(span: Span) {
+  const childSpan = span.traceChild('build LAN cache ruleset');
+
+  const cacheDomainsData = await childSpan.traceChildAsync('fetch cache_domains.json', async () => (await $$fetch('https://cdn.jsdelivr.net/gh/uklans/cache-domains@master/cache_domains.json')).json(), SpanCategory.Network);
+  if (!cacheDomainsData || typeof cacheDomainsData !== 'object' || !('cache_domains' in cacheDomainsData) || !Array.isArray(cacheDomainsData.cache_domains)) {
+    throw new TypeError('Invalid cache domains data');
+  }
+  const allDomainFiles = cacheDomainsData.cache_domains.reduce<string[]>((acc, { domain_files }) => {
+    if (Array.isArray(domain_files)) {
+      appendArrayInPlace(acc, domain_files);
+    }
+    return acc;
+  }, []);
+
+  const allDomains = (
+    await Promise.all(
+      allDomainFiles.map(
+        (file) => childSpan.traceChildAsync(
+          'download ' + file,
+          () => fetchRemoteTextLines('https://cdn.jsdelivr.net/gh/uklans/cache-domains@master/' + file, true),
+          SpanCategory.Network
+        )
+      )
+    )
+  ).flat();
+
+  const surgeOutput = new SurgeOnlyRulesetOutput(
+    span,
+    'lancache',
+    'sukka_local_dns_mapping',
+    OUTPUT_MODULES_RULES_DIR
+  )
+    .withTitle('Sukka\'s Ruleset - Local DNS Mapping (lancache)')
+    .appendDescription(
+      SHARED_DESCRIPTION,
+      '',
+      'This is an internal rule that is only referenced by sukka_local_dns_mapping.sgmodule',
+      'Do not use this file in your Rule section.'
+    );
+
+  for (let i = 0, len = allDomains.length; i < len; i++) {
+    const domain = allDomains[i];
+
+    if (domain.includes('*')) {
+      // If only *. prefix is used, we can convert it to DOMAIN-SUFFIX
+      if (domain.startsWith('*.') && !domain.slice(2).includes('*')) {
+        const domainSuffix = domain.slice(2);
+        surgeOutput.addDomainSuffix(domainSuffix);
+        continue;
+      }
+
+      surgeOutput.addDomainWildcard(domain);
+      continue;
+    }
+
+    surgeOutput.addDomain(domain);
+  }
+
+  childSpan.stop();
+
+  return surgeOutput.write();
+}

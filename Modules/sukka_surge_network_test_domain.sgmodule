@@ -1,0 +1,6 @@
+#!name=[Sukka] Change Test Url
+#!desc=Set the Surge network test URLs to Vivo and Cloudflare
+
+[General]
+internet-test-url = http://wifi.vivo.com.cn/generate_204
+proxy-test-url = http://cp.cloudflare.com/generate_204
