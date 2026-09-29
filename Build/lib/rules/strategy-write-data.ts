@@ -5,10 +5,6 @@ import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
 
 import type { BaseWriteStrategy } from '../writing-strategy/base';
 import { AdGuardHome } from '../writing-strategy/adguardhome';
-import { ClashClassicRuleSet, ClashDomainSet, ClashIPSet } from '../writing-strategy/clash';
-import { LegacyClashPremiumClassicRuleSet } from '../writing-strategy/legacy-clash-premium';
-import { SingboxSource } from '../writing-strategy/singbox';
-import { SurfboardRuleSet } from '../writing-strategy/surfboard';
 import { SurgeDomainSet, SurgeMitmSgmodule, SurgeRuleSet } from '../writing-strategy/surge';
 
 /**
@@ -234,12 +230,6 @@ const strategyRegistry: Record<string, (d: StrategyDescriptor) => BaseWriteStrat
   'surge domainset': (d) => new SurgeDomainSet(d.outputDir),
   'surge ruleset': (d) => new SurgeRuleSet(d.type, d.outputDir),
   'surge sgmodule': (d) => new SurgeMitmSgmodule(d.overwriteFilename ?? '', d.outputDir),
-  'clash domainset': (d) => new ClashDomainSet(d.outputDir),
-  'clash ipcidr': (d) => new ClashIPSet(d.outputDir),
-  'clash classic ruleset': (d) => new ClashClassicRuleSet(d.type, d.outputDir),
-  'legacy clash premium classic ruleset': (d) => new LegacyClashPremiumClassicRuleSet(d.type as 'ip' | 'non_ip', d.outputDir),
-  'surfboard for android ruleset': (d) => new SurfboardRuleSet(d.type as 'ip' | 'non_ip', d.outputDir),
-  singbox: (d) => new SingboxSource(d.type as 'domainset' | 'non_ip' | 'ip', d.outputDir),
   adguardhome: (d) => new AdGuardHome(d.outputDir)
 };
 

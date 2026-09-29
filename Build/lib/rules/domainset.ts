@@ -1,16 +1,12 @@
 import type { Span } from '../../trace';
 import { AdGuardHome } from '../writing-strategy/adguardhome';
 import type { BaseWriteStrategy } from '../writing-strategy/base';
-import { ClashDomainSet } from '../writing-strategy/clash';
-import { SingboxSource } from '../writing-strategy/singbox';
 import { SurgeDomainSet } from '../writing-strategy/surge';
 import { FileOutput } from './base';
 
 export class DomainsetOutput extends FileOutput {
   strategies: BaseWriteStrategy[] = [
-    new SurgeDomainSet(),
-    new ClashDomainSet(),
-    new SingboxSource('domainset')
+    new SurgeDomainSet()
   ];
 }
 

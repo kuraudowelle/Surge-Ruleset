@@ -16,13 +16,13 @@ export const buildChnCidr = task(require.main === module, __filename)(async (spa
   const description = createFileDescription('CC BY-SA 2.0');
 
   return Promise.all([
-    new IPListOutput(span, 'china_ip', false)
+    new IPListOutput(span, 'china_ip')
       .withTitle('Sukka\'s Ruleset - Mainland China IPv4 CIDR')
       .withDescription(description)
       .appendDataSource('https://chnroutes2.cdn.skk.moe/chnroutes.txt')
       .bulkAddCIDR4(filteredCidr4)
       .write(),
-    new IPListOutput(span, 'china_ip_ipv6', false)
+    new IPListOutput(span, 'china_ip_ipv6')
       .withTitle('Sukka\'s Ruleset - Mainland China IPv6 CIDR')
       .withDescription(description)
       .appendDataSource(
