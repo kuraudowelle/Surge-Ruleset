@@ -76,6 +76,17 @@ describe('extractSpeedtestNetHostnames', () => {
     ])).toEqual(['t4y-toronto-ca-osts1.ser.tek4you.ca']);
   });
 
+  it('lowercases the hostnames', () => {
+    expect(extractSpeedtestNetHostnames([{ host: 'SpeedTest.Example.COM:8080' }])).toEqual(['speedtest.example.com']);
+  });
+
+  it('skips servers that are listed by their IP', () => {
+    expect(extractSpeedtestNetHostnames([
+      { host: '203.0.113.7:8080', url: 'http://203.0.113.7:8080/speedtest/upload.php' },
+      { host: '[2001:db8::1]:8080', url: 'http://[2001:db8::1]:8080/speedtest/upload.php' }
+    ])).toEqual([]);
+  });
+
   it('skips servers without host and url', () => {
     expect(extractSpeedtestNetHostnames([{}, { host: '' }, { name: 'nothing' }])).toEqual([]);
   });
@@ -86,6 +97,7 @@ describe('extractLibrespeedHostnames', () => {
     expect(extractLibrespeedHostnames([
       { server: '//librespeed.example.org/' },
       { server: 'https://lg.example.net/' },
+      { server: '//203.0.113.7/' },
       { server: '' },
       {}
     ])).toEqual(['librespeed.example.org', 'lg.example.net']);

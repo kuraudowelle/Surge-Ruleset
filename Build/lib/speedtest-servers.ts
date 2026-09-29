@@ -3,6 +3,7 @@ import tldts from 'tldts-experimental';
 import { fastUri } from 'fast-uri';
 import { wait } from 'foxts/wait';
 import { extractErrorMessage } from 'foxts/extract-error-message';
+import { isProbablyIp } from 'foxts/is-probably-ip';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 
 import { $$fetch, ResponseError } from './fetch-retry';
@@ -87,22 +88,32 @@ export function pickSpeedtestNetRegions(
   return picked;
 }
 
+/**
+ * A few speedtest servers are listed by their IP, which is of no use in a DOMAIN-SET
+ */
+function toHostname(host: string | null | undefined): string | null {
+  if (!host) return null;
+
+  const hn = tldts.getHostname(host.trim(), { detectIp: false, validateHostname: true });
+  return hn && !isProbablyIp(hn) ? hn : null;
+}
+
 export function extractSpeedtestNetHostnames(servers: ReadonlyArray<Partial<SpeedTestServer>>): string[] {
   const hostnames: string[] = [];
 
   for (let i = 0, len = servers.length; i < len; i++) {
     const server = servers[i];
 
-    if (server.host) {
-      const hn = tldts.getHostname(server.host, { detectIp: false, validateHostname: true });
-      if (hn) {
-        hostnames.push(hn.trim());
-      }
+    const fromHost = toHostname(server.host);
+    if (fromHost) {
+      hostnames.push(fromHost);
     }
+
     if (server.url) {
-      const hn = fastUri.parse(server.url).host;
-      if (hn) {
-        hostnames.push(hn.trim()); // speedtest API typo: "url":"http:// t4y-toronto-ca-osts1.ser.tek4you.ca:8080/speedtest/upload.php"
+      // speedtest API typo: "url":"http:// t4y-toronto-ca-osts1.ser.tek4you.ca:8080/speedtest/upload.php"
+      const fromUrl = toHostname(fastUri.parse(server.url).host);
+      if (fromUrl) {
+        hostnames.push(fromUrl);
       }
     }
   }
@@ -116,9 +127,9 @@ export function extractLibrespeedHostnames(servers: ReadonlyArray<Partial<LibreS
   for (let i = 0, len = servers.length; i < len; i++) {
     const server = servers[i].server;
     if (server) {
-      const hn = fastUri.parse(server).host;
+      const hn = toHostname(fastUri.parse(server).host);
       if (hn) {
-        hostnames.push(hn.trim());
+        hostnames.push(hn);
       }
     }
   }
@@ -196,7 +207,9 @@ export async function fetchSpeedtestNetHostnames(
 export async function fetchLibrespeedHostnames(): Promise<string[]> {
   try {
     const servers = await fetchJsonArray<LibreSpeedServerInfo>(LIBRESPEED_SERVERS_LIST);
-    return extractLibrespeedHostnames(servers);
+    const hostnames = extractLibrespeedHostnames(servers);
+    console.log(picocolors.gray('[librespeed]'), `${servers.length} servers, ${hostnames.length} hostnames`);
+    return hostnames;
   } catch (e) {
     console.warn(picocolors.yellow('[librespeed]'), 'can not get the backend servers,', extractErrorMessage(e));
     return [];
