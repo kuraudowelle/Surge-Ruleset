@@ -1,6 +1,6 @@
 # Surge Ruleset
 
-Ruleset snippets for [Surge](https://nssurge.com/), maintained by [kuraudowelle](https://github.com/kuraudowelle) for personal use. Forked from [SukkaW/Surge](https://github.com/SukkaW/Surge).
+Ruleset snippets for [Surge](https://nssurge.com/), maintained by [kuraudowelle](https://github.com/kuraudowelle) for personal use. Based on [SukkaW/Surge](https://github.com/SukkaW/Surge) (AGPL-3.0), now maintained as an independent repository.
 
 ## Terms and License
 
@@ -8,7 +8,7 @@ Except for the `List/ip/china_ip.conf` file, which is shared under the CC BY-SA 
 
 If you are using a commercial public proxy service, be sure to read the service provider's Terms of Service (ToS) carefully first. The ToS of some public proxy providers state that using any third-party rule files is treated as automatically waiving the SLA and technical support.
 
-The ruleset files are served from this repository through `https://raw.githubusercontent.com/kuraudowelle/Surge/master/`. You can also get the source code of this project and build the ruleset files yourself.
+The ruleset files are served from this repository through `https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/`. You can also get the source code of this project and build the ruleset files yourself.
 
 The built files (`List/`, `Modules/`, `Mock/` and `Internal/`) are rebuilt by the [Build workflow](.github/workflows/main.yml) twice a day (05:17 and 17:17 UTC) and on every push to `master`, and the workflow commits the result back to `master`. Edit the sources in `Source/` and `Build/`, not the generated files. Hand-written modules and mocks live next to the generated ones in `Modules/` and `Mock/`. To delete a published file that is no longer generated, add it to `REMOVED_FILES` in [`build-deprecate-files.ts`](Build/build-deprecate-files.ts).
 
@@ -34,26 +34,26 @@ If you place any `ip` ruleset, or your own `IP-CIDR`, `IP-CIDR6`, `IP-ASN`, and 
 
 ```ini
 # Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/reject-drop.conf,REJECT-DROP,pre-matching
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/reject-drop.conf,REJECT-DROP,pre-matching
 
 # Base list: 120,000 blocked domains
-DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/domainset/reject.conf,REJECT,extended-matching
+DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/domainset/reject.conf,REJECT,extended-matching
 # Extra 90,000 blocked domains, a supplement to the base list; must be used together with the base list
-DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/domainset/reject_extra.conf,REJECT
+DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/domainset/reject_extra.conf,REJECT
 # Phishing site blocklist, 130,000 blocked domains in total
 # On Surge 5 for Mac (or newer), enabling both the base and extra blocked domains at the same time will not degrade matching performance or cause excessive memory usage
-# DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/domainset/reject_phishing.conf,REJECT
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/reject.conf,REJECT,extended-matching
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/reject-no-drop.conf,REJECT-NO-DROP,extended-matching
+# DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/domainset/reject_phishing.conf,REJECT
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/reject.conf,REJECT,extended-matching
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/reject-no-drop.conf,REJECT-NO-DROP,extended-matching
 # URL-REGEX
-# Must be used together with the Surge module https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_mitm_hostnames.sgmodule
+# Must be used together with the Surge module https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Modules/sukka_mitm_hostnames.sgmodule
 # MITM and URL-REGEX have a very high performance overhead and are not recommended
-# RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/reject-url-regex.conf,REJECT
+# RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/reject-url-regex.conf,REJECT
 ```
 
 ```ini
 # IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/reject.conf,REJECT-DROP
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/reject.conf,REJECT-DROP
 ```
 
 #### Speedtest Domains
@@ -64,7 +64,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/rej
 - Lets you run speed tests over a designated network egress without affecting normal internet access through the primary egress
 
 ```ini
-DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/domainset/speedtest.conf,[Replace with your policy],extended-matching
+DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/domainset/speedtest.conf,[Replace with your policy],extended-matching
 ```
 
 #### Common Static CDNs
@@ -75,8 +75,8 @@ DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/doma
 - Includes some domains that are not in `global.conf`, so even if you have no use for the low-rate nodes offered by commercial public proxy services and do not need to split this traffic, it is still recommended to use these rules; in that case, just assign them the same policy as `global.conf`
 
 ```ini
-DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/domainset/cdn.conf,[Replace with your policy]
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/cdn.conf,[Replace with your policy]
+DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/domainset/cdn.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/cdn.conf,[Replace with your policy]
 ```
 
 #### Streaming
@@ -87,37 +87,37 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 ```ini
 # Non IP
 # North America-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/stream_us.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/stream_us.conf,[Replace with your policy]
 # Europe-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/stream_eu.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/stream_eu.conf,[Replace with your policy]
 # Japan-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/stream_jp.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/stream_jp.conf,[Replace with your policy]
 # South Korea-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/stream_kr.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/stream_kr.conf,[Replace with your policy]
 # Hong Kong-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/stream_hk.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/stream_hk.conf,[Replace with your policy]
 # Taiwan-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/stream_tw.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/stream_tw.conf,[Replace with your policy]
 # All streaming services (including all of the above)
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/stream.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/stream.conf,[Replace with your policy]
 ```
 
 ```ini
 # IP
 # North America-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/stream_us.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/stream_us.conf,[Replace with your policy]
 # Europe-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/stream_eu.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/stream_eu.conf,[Replace with your policy]
 # Japan-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/stream_jp.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/stream_jp.conf,[Replace with your policy]
 # South Korea-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/stream_kr.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/stream_kr.conf,[Replace with your policy]
 # Hong Kong-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/stream_hk.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/stream_hk.conf,[Replace with your policy]
 # Taiwan-related streaming services
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/stream_tw.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/stream_tw.conf,[Replace with your policy]
 # All streaming services (including all of the above)
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/stream.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/stream.conf,[Replace with your policy]
 ```
 
 #### AI
@@ -127,13 +127,13 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/str
 
 ```ini
 # Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/ai.conf,[Replace with your policy]
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/apple_intelligence.conf,[Replace with your policy],extended-matching
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/ai.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/apple_intelligence.conf,[Replace with your policy],extended-matching
 ```
 
 ```ini
 # IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/ai.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/ai.conf,[Replace with your policy]
 ```
 
 #### Telegram
@@ -147,13 +147,13 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/ai.
 
 ```ini
 # Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/telegram.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/telegram.conf,[Replace with your policy]
 ```
 
 ```ini
 # IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/telegram.conf,[Replace with your policy]
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/telegram_asn.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/telegram.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/telegram_asn.conf,[Replace with your policy]
 ```
 
 #### Apple CDN
@@ -163,7 +163,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/tel
 - Data source: [`felixonmars/dnsmasq-china-list`](https://github.com/felixonmars/dnsmasq-china-list/blob/master/apple.china.conf)
 
 ```ini
-DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/domainset/apple_cdn.conf,[Replace with your policy]
+DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/domainset/apple_cdn.conf,[Replace with your policy]
 ```
 
 #### Apple Service
@@ -171,7 +171,7 @@ DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/doma
 - Manually maintained
 
 ```ini
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/apple_services.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/apple_services.conf,[Replace with your policy]
 ```
 
 #### Apple CN
@@ -180,7 +180,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 - Domains of services such as Cloud Guizhou (`icloud.com.cn`) and the mainland-China-only edition of Apple Maps.
 
 ```ini
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/apple_cn.conf,DIRECT
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/apple_cn.conf,DIRECT
 ```
 
 #### Microsoft CDN
@@ -190,7 +190,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 - Data source: [`felixonmars/dnsmasq-china-list`](https://github.com/felixonmars/dnsmasq-china-list/blob/master/apple.china.conf)
 
 ```ini
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/microsoft_cdn.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/microsoft_cdn.conf,[Replace with your policy]
 ```
 
 #### Microsoft
@@ -198,7 +198,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 - Manually maintained
 
 ```ini
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/microsoft.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/microsoft.conf,[Replace with your policy]
 ```
 
 #### NetEase Cloud Music
@@ -207,12 +207,12 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 
 ```ini
 # Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/neteasemusic.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/neteasemusic.conf,[Replace with your policy]
 ```
 
 ```ini
 # IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/neteasemusic.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/neteasemusic.conf,[Replace with your policy]
 ```
 
 #### Large File Downloads (Software Updates, Operating Systems, etc.)
@@ -223,8 +223,8 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/net
 - If you are using a commercial public proxy service and your provider offers nodes that bill traffic consumption at a low rate multiplier, you can use the rulesets above to route traffic to those nodes
 
 ```ini
-DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/domainset/download.conf,[Replace with your policy]
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/download.conf,[Replace with your policy]
+DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/domainset/download.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/download.conf,[Replace with your policy]
 ```
 
 #### Intranet Domains and LAN IPs
@@ -234,12 +234,12 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 
 ```ini
 # Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/lan.conf,DIRECT
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/lan.conf,DIRECT
 ```
 
 ```ini
 # IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/lan.conf,DIRECT
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/lan.conf,DIRECT
 ```
 
 #### Common Mainland China Services
@@ -249,20 +249,20 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/lan
 ```ini
 # Inside mainland China (the most common scenario): only domestic needs to be configured, and DIRECT is enough
 # Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/domestic.conf,DIRECT
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/domestic.conf,DIRECT
 
 # IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/domestic.conf,DIRECT
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/domestic.conf,DIRECT
 ```
 
 ```ini
 # In other countries and regions, when you need a back-to-China node to access mainland China services: domestic_cdn goes direct first, and domestic uses the back-to-China node
 # Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/domestic_cdn.conf,DIRECT
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/domestic.conf,Back To China Proxy
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/domestic_cdn.conf,DIRECT
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/domestic.conf,Back To China Proxy
 
 # IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/domestic.conf,Back To China Proxy
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/domestic.conf,Back To China Proxy
 ```
 
 #### Services That Should Go Direct
@@ -273,7 +273,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/dom
 
 ```ini
 # Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/direct.conf,DIRECT
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/direct.conf,DIRECT
 ```
 
 #### Common Services in Other Countries and Regions
@@ -286,13 +286,13 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 ```ini
 # Inside mainland China (the most common scenario): use a proxy
 # Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/global.conf,Proxy
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/global.conf,Proxy
 ```
 
 ```ini
 # In other countries and regions, when you only need a back-to-China node to access mainland China services: DIRECT is enough
 # Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/global.conf,DIRECT
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/global.conf,DIRECT
 ```
 
 #### chnroute CIDR
@@ -302,20 +302,20 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 - IPv6 raw data is published by [gaoyifan/china-operator-ip](https://github.com/gaoyifan/china-operator-ip) under the MIT license
 
 ```ini
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/china_ip.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/china_ip.conf,[Replace with your policy]
 # Only use it if you are using IPv6
-# RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/china_ip_ipv6.conf,[Replace with your policy]
+# RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/china_ip_ipv6.conf,[Replace with your policy]
 ```
 
 ## Surge Module List
 
-- URL Redirect: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_url_redirect.sgmodule`
-- URL Redirect (Minimum): `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_url_redirect_minimum.sgmodule`
-- Surge Network Test Domain: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_surge_network_test_domain.sgmodule`
-- MITM Hostnames: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_mitm_hostnames.sgmodule`
-- MITM All Hostnames: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_mitm_all_hostnames.sgmodule`
-- Common Always Real IP Hostnames: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/sukka_common_always_realip.sgmodule`
-- Redirect Google CN to Google: `https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/google_cn_307.sgmodule`
+- URL Redirect: `https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Modules/sukka_url_redirect.sgmodule`
+- URL Redirect (Minimum): `https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Modules/sukka_url_redirect_minimum.sgmodule`
+- Surge Network Test Domain: `https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Modules/sukka_surge_network_test_domain.sgmodule`
+- MITM Hostnames: `https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Modules/sukka_mitm_hostnames.sgmodule`
+- MITM All Hostnames: `https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Modules/sukka_mitm_all_hostnames.sgmodule`
+- Common Always Real IP Hostnames: `https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Modules/sukka_common_always_realip.sgmodule`
+- Redirect Google CN to Google: `https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Modules/google_cn_307.sgmodule`
 
 ## FAQ
 

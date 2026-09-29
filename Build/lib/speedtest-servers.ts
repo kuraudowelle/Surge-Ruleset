@@ -141,7 +141,7 @@ async function fetchJsonArray<T>(url: string): Promise<T[]> {
   const res = await $$fetch(url, {
     headers: {
       // say who is asking instead of sending the default user agent of scripts
-      'User-Agent': 'Mozilla/5.0 (compatible; SurgeRulesetBuilder; +https://github.com/kuraudowelle/Surge)',
+      'User-Agent': 'Mozilla/5.0 (compatible; SurgeRulesetBuilder; +https://github.com/kuraudowelle/Surge-Ruleset)',
       Accept: 'application/json'
     },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT)

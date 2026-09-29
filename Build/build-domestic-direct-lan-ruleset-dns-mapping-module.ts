@@ -223,7 +223,7 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
             });
 
             if (ruleset) {
-              acc[`RULE-SET:https://raw.githubusercontent.com/kuraudowelle/Surge/master/Modules/Rules/sukka_local_dns_mapping/${ruleset_name}.conf`] ||= `server:${dns}`;
+              acc[`RULE-SET:https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Modules/Rules/sukka_local_dns_mapping/${ruleset_name}.conf`] ||= `server:${dns}`;
             } else {
               domains.forEach((domain) => {
                 switch (domain[0]) {
