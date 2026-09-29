@@ -1,11 +1,16 @@
 import { fetchRemoteTextLines } from './lib/fetch-text-by-line';
+import { fetchAssets } from './lib/fetch-assets';
 import { SpanCategory, task } from './trace';
 
 import { IPListOutput } from './lib/rules/ip';
 import { createFileDescription } from './constants/description';
 
 const getChnCidrPromise = Promise.all([
-  fetchRemoteTextLines('https://chnroutes2.cdn.skk.moe/chnroutes.txt', true),
+  fetchAssets(
+    'https://raw.githubusercontent.com/misakaio/chnroutes2/master/chnroutes.txt',
+    ['https://cdn.jsdelivr.net/gh/misakaio/chnroutes2@master/chnroutes.txt'],
+    true
+  ),
   fetchRemoteTextLines('https://gaoyifan.github.io/china-operator-ip/china6.txt', true)
 ]);
 
@@ -19,7 +24,7 @@ export const buildChnCidr = task(require.main === module, __filename)(async (spa
     new IPListOutput(span, 'china_ip')
       .withTitle('Sukka\'s Ruleset - Mainland China IPv4 CIDR')
       .withDescription(description)
-      .appendDataSource('https://chnroutes2.cdn.skk.moe/chnroutes.txt')
+      .appendDataSource('https://github.com/misakaio/chnroutes2')
       .bulkAddCIDR4(filteredCidr4)
       .write(),
     new IPListOutput(span, 'china_ip_ipv6')

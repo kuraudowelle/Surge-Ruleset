@@ -32,8 +32,6 @@ If you place any `ip` ruleset, or your own `IP-CIDR`, `IP-CIDR6`, `IP-ASN`, and 
 - Recommended for Surge for Mac only; on mobile platforms, use a dedicated tool (such as AdGuard for Android/iOS) for better performance
 - **Not a replacement for browser ad-blocking extensions (such as AdGuard for Browser)**
 
-**Surge**
-
 ```ini
 # Non IP
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/reject-drop.conf,REJECT-DROP,pre-matching
@@ -58,26 +56,12 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/reject.conf,REJECT-DROP
 ```
 
-#### Sogou Input Method
-
-- Manually maintained
-- This ruleset prevents Sogou Input Method from automatically collecting every character you type and sending it back through domains such as `get.sogou.com/q`
-- Affects Sogou Input Method account sync, dictionary updates, and issue feedback
-
-**Surge**
-
-```ini
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/sogouinput.conf,REJECT
-```
-
 #### Speedtest Domains
 
 - `speedtest.net` test points: the domains of speed test servers in dozens of common regions, fetched through the Speedtest API
 - Manually maintained domains of the speed test servers used by other speed test tools such as macOS `netQuality`
 - `fast.com` test points share infrastructure and domains with the Netflix CDN and would affect streaming traffic routing, so they are not included in this ruleset
 - Lets you run speed tests over a designated network egress without affecting normal internet access through the primary egress
-
-**Surge**
 
 ```ini
 DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/domainset/speedtest.conf,[Replace with your policy],extended-matching
@@ -90,8 +74,6 @@ DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/doma
 - If you are using a commercial public proxy service and your provider offers nodes that bill traffic consumption at a low rate multiplier, you can use the rulesets above to route traffic to those nodes
 - Includes some domains that are not in `global.conf`, so even if you have no use for the low-rate nodes offered by commercial public proxy services and do not need to split this traffic, it is still recommended to use these rules; in that case, just assign them the same policy as `global.conf`
 
-**Surge**
-
 ```ini
 DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/domainset/cdn.conf,[Replace with your policy]
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/cdn.conf,[Replace with your policy]
@@ -101,8 +83,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 
 - Manually maintained
 - Includes rulesets for 4gtv, AbemaTV, All4, Amazon Prime Video, Apple TV, Apple Music TV, Bahamut, BBC, Bilibili Intl, DAZN, Deezer, Disney+, Discovery+, DMM, encoreTVB, Fox Now, Fox+, HBO GO/Now/Max/Asia, Hulu, HWTV, JOOX, Jwplayer, KKBOX, KKTV, Line TV, Naver TV, myTV Super, Netflix, niconico, Now E, Paramount+, PBS, Peacock, Pandora, PBS, Pornhub, SoundCloud, PBS, Spotify, TaiwanGood, Tiktok Intl, Twitch, ViuTV, ShowTime, iQiYi Global, Himalaya Podcast, Overcast, and WeTV
-
-**Surge**
 
 ```ini
 # Non IP
@@ -145,8 +125,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/str
 - Domain and IP rules, manually maintained + automatically updated
 - Includes OpenAI, Google Gemini, Claude, Perplexity, and more
 
-**Surge**
-
 ```ini
 # Non IP
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/ai.conf,[Replace with your policy]
@@ -167,8 +145,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/ai.
 > Using only the IP CIDR rules is recommended. The IP CIDR rule data comes entirely from the CIDR list officially published by Telegram and does not include the IPs of CDNs and data centers that Telegram has not yet put into use.
 > The ASN rules are only suitable as a supplement; using them together with an unofficial MaxMind GeoLite database (such as GeoIP2-CN) will affect matching.
 
-**Surge**
-
 ```ini
 # Non IP
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/telegram.conf,[Replace with your policy]
@@ -186,8 +162,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/tel
 - This ruleset contains the domains of Apple, Inc. that have completed the MIIT ICP filing and the public security network filing in the People's Republic of China and provide HTTP services within the People's Republic of China. If for some reason you need to proxy some of these domains, write your own rules for those domains and add them before this ruleset.
 - Data source: [`felixonmars/dnsmasq-china-list`](https://github.com/felixonmars/dnsmasq-china-list/blob/master/apple.china.conf)
 
-**Surge**
-
 ```ini
 DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/domainset/apple_cdn.conf,[Replace with your policy]
 ```
@@ -195,8 +169,6 @@ DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/doma
 #### Apple Service
 
 - Manually maintained
-
-**Surge**
 
 ```ini
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/apple_services.conf,[Replace with your policy]
@@ -206,8 +178,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 
 - Manually maintained
 - Domains of services such as Cloud Guizhou (`icloud.com.cn`) and the mainland-China-only edition of Apple Maps.
-
-**Surge**
 
 ```ini
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/apple_cn.conf,DIRECT
@@ -219,8 +189,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 - This ruleset contains the domains of Microsoft that have completed the MIIT ICP filing and the public security network filing in the People's Republic of China and provide HTTP services within the People's Republic of China. If for some reason you need to proxy some of these domains, write your own rules for those domains and add them before this ruleset.
 - Data source: [`felixonmars/dnsmasq-china-list`](https://github.com/felixonmars/dnsmasq-china-list/blob/master/apple.china.conf)
 
-**Surge**
-
 ```ini
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/microsoft_cdn.conf,[Replace with your policy]
 ```
@@ -229,8 +197,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 
 - Manually maintained
 
-**Surge**
-
 ```ini
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/microsoft.conf,[Replace with your policy]
 ```
@@ -238,8 +204,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 #### NetEase Cloud Music
 
 - Manually maintained
-
-**Surge**
 
 ```ini
 # Non IP
@@ -258,8 +222,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/net
 - These domains may include Microsoft and Apple CDN nodes inside mainland China. You can use them together with the Microsoft CDN and Apple CDN rulesets above and assign the direct policy.
 - If you are using a commercial public proxy service and your provider offers nodes that bill traffic consumption at a low rate multiplier, you can use the rulesets above to route traffic to those nodes
 
-**Surge**
-
 ```ini
 DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/domainset/download.conf,[Replace with your policy]
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/download.conf,[Replace with your policy]
@@ -269,8 +231,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 
 - Manually maintained
 - The domain list contains `.local` and the `in-addr.arpa` domains of LAN IPs (i.e., AS112 domains). These domains are generally resolved to LAN IPs, need to be resolved by the internal DNS, and need to be accessed directly.
-
-**Surge**
 
 ```ini
 # Non IP
@@ -285,8 +245,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/lan
 #### Common Mainland China Services
 
 - Manually maintained
-
-**Surge**
 
 ```ini
 # Inside mainland China (the most common scenario): only domestic needs to be configured, and DIRECT is enough
@@ -313,8 +271,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/dom
 - Includes hotspot authentication (captive portal) pages, PT sites, process names of download tools and proxy tools, LAN cache services, academic databases, and other services that should be accessed directly wherever you are
 - Just use DIRECT
 
-**Surge**
-
 ```ini
 # Non IP
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip/direct.conf,DIRECT
@@ -326,8 +282,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 - Includes common services from other countries and regions, such as Google, Reddit, Facebook, Twitter, Discord, and GitHub, that cannot be accessed directly from within mainland China or that offer a poor experience when accessed directly, as well as a batch of ccTLDs and gTLDs of other countries and regions
 - **The vast majority of users are located in mainland China; for these rules, just use a proxy**
 - You only need to set these rules to direct if you are located in another country or region, only need a back-to-China node to access mainland China services, and send all other traffic direct (in which case your `FINAL` / `MATCH` is usually direct as well)
-
-**Surge**
 
 ```ini
 # Inside mainland China (the most common scenario): use a proxy
@@ -346,8 +300,6 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/non_ip
 - Automatically generated
 - IPv4 [raw data](https://github.com/misakaio/chnroutes2) is published by Misaka Network, Inc. under the [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) license. It is reprocessed to add and merge some domestic (mainland China) segments whose BGP routes Misaka Network, Inc. does not receive, and to exclude IP segments announced in Hong Kong that Misaka Network, Inc. collected by mistake (usually announced by China Mobile International, CMI)
 - IPv6 raw data is published by [gaoyifan/china-operator-ip](https://github.com/gaoyifan/china-operator-ip) under the MIT license
-
-**Surge**
 
 ```ini
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge/master/List/ip/china_ip.conf,[Replace with your policy]

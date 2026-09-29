@@ -3,4 +3,4 @@
 
 [General]
 internet-test-url = http://wifi.vivo.com.cn/generate_204
-proxy-test-url = http://latency-test.skk.moe/endpoint
+proxy-test-url = http://cp.cloudflare.com/generate_204
