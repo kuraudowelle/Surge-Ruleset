@@ -153,13 +153,13 @@ function generateHtml(tree: TreeTypeArray) {
         <link href="https://cdn.skk.moe/favicon/android-chrome-192x192.png" rel="icon" type="image/png" sizes="192x192">
         <link href="https://cdn.skk.moe/favicon/favicon-32x32.png" rel="icon" type="image/png" sizes="32x32">
         <link href="https://cdn.skk.moe/favicon/favicon-16x16.png" rel="icon" type="image/png" sizes="16x16">
-        <meta name="description" content="Sukka 自用的 Surge / Clash Premium 规则组">
+        <meta name="description" content="Sukka's personal Surge / Clash Premium rulesets">
 
         <meta property="og:title" content="Surge Ruleset | Sukka (@SukkaW)">
         <meta property="og:type" content="Website">
         <meta property="og:url" content="https://ruleset.skk.moe/">
         <meta property="og:image" content="https://cdn.skk.moe/favicon/android-chrome-192x192.png">
-        <meta property="og:description" content="Sukka 自用的 Surge / Clash Premium 规则组">
+        <meta property="og:description" content="Sukka's personal Surge / Clash Premium rulesets">
         <meta name="twitter:card" content="summary">
         <link rel="canonical" href="https://ruleset.skk.moe/">
         <style>

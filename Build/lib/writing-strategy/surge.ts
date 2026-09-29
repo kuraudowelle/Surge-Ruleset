@@ -164,7 +164,7 @@ export class SurgeMitmSgmodule extends BaseWriteStrategy {
 
     return [
       '#!name=[Sukka] Surge Reject MITM',
-      `#!desc=为 URL Regex 规则组启用 MITM (size: ${this.rules.size})`,
+      `#!desc=Enable MITM for the URL Regex ruleset (size: ${this.rules.size})`,
       '',
       '[MITM]',
       'hostname = %APPEND% ' + Array.from(this.rules).join(', ')

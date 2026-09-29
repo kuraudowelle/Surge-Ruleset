@@ -1,61 +1,61 @@
 # Sukka Ruleset
 
-由 [Sukka](https://skk.moe) 搜集、整理、维护的、个人自用的、适用于 [Surge](https://nssurge.com/)、[Mihomo](https://wiki.metacubex.one/)、[Clash Premium (Dreamacro)](https://web.archive.org/web/20230521135419/https://dreamacro.github.io/clash/premium/rule-providers.html)、[sing-box](https://sing-box.sagernet.org/)、[Surfboard for Android](https://getsurfboard.com) 和 [Stash](https://stash.ws/) 的 Ruleset Snippet。
+Ruleset snippets for [Surge](https://nssurge.com/), [Mihomo](https://wiki.metacubex.one/), [Clash Premium (Dreamacro)](https://web.archive.org/web/20230521135419/https://dreamacro.github.io/clash/premium/rule-providers.html), [sing-box](https://sing-box.sagernet.org/), [Surfboard for Android](https://getsurfboard.com), and [Stash](https://stash.ws/), collected, organized, and maintained by [Sukka](https://skk.moe) for personal use.
 
-## 条款和协议
+## Terms and License
 
-本项目除 `List/ip/china_ip.conf` 文件使用 CC BY-SA 2.0 协议分享以外，均使用 AGPL-3.0 协议开源，不提供任何担保，即：**本项目的作者和所有贡献者不会提供任何技术支持，也不会对你的任何损失负责**，包括但不限于：你的软件无法启动和正常工作、Kernel Panic、设备无法开机或正常使用、硬盘损坏或数据丢失、原子弹爆炸、第三次世界大战、[SCP 基金会](https://scp-wiki-cn.wikidot.com/) 无法阻止的全球 CK 级现实重构等。
+Except for the `List/ip/china_ip.conf` file, which is shared under the CC BY-SA 2.0 license, this project is open-sourced under the AGPL-3.0 license and comes with no warranty of any kind. That is: **the author and all contributors of this project provide no technical support and are not responsible for any loss you may suffer**, including but not limited to: your software failing to start or work properly, kernel panics, your device failing to boot or work normally, hard drive damage or data loss, atomic bomb explosions, World War III, or a global CK-class reality-restructuring scenario that even the [SCP Foundation](https://scp-wiki.wikidot.com/) cannot stop.
 
-如果你正在使用商业性质的公共代理服务，请务必先仔细阅读相关服务商的 服务条款与条件（ToS）。部分公共代理服务商的服务条款与条件规定，如果用户使用任何第三方规则文件将会被视为自动放弃 SLA 和技术支持服务。
+If you are using a commercial public proxy service, be sure to read the service provider's Terms of Service (ToS) carefully first. The ToS of some public proxy providers state that using any third-party rule files is treated as automatically waiving the SLA and technical support.
 
-如果你从 Sukka 提供的 Ruleset Server（[`https://ruleset.skk.moe`](https://ruleset.skk.moe)）获取本项目中的规则组文件，则意味着你已知晓并同意 [隐私政策](https://skk.moe/privacy-policy/) 中的所有条款。如果你不同意，请通过 GitHub 获取本项目中的源码、自行构建规则组文件。
+If you fetch this project's ruleset files from the Ruleset Server provided by Sukka ([`https://ruleset.skk.moe`](https://ruleset.skk.moe)), you acknowledge and agree to all the terms of the [Privacy Policy](https://skk.moe/privacy-policy/). If you do not agree, please get the source code of this project from GitHub and build the ruleset files yourself.
 
-## 镜像
+## Mirrors
 
-`ruleset.skk.moe` 是由 Sukka 提供的 Ruleset Server，由 Cloudflare 驱动。但是由于众所周知的原因、Cloudflare 的节点在中国大陆的访问速度和稳定性都不理想。目前，Sukka Ruleset 提供了以下官方镜像：
+`ruleset.skk.moe` is the Ruleset Server provided by Sukka, powered by Cloudflare. However, for reasons that are well known, the speed and stability of Cloudflare's nodes in mainland China are not ideal. Sukka Ruleset currently provides the following official mirror:
 
-- `ruleset-mirror.skk.moe`：由 Sukka 维护。
+- `ruleset-mirror.skk.moe`: maintained by Sukka.
 
-为了改善访问速度和稳定性，欢迎大家搭建镜像、从以下 Git 仓库同步更新：
+To improve speed and stability, everyone is welcome to set up mirrors and sync updates from the following Git repositories:
 
 - https://github.com/SukkaLab/ruleset.skk.moe
 - https://gitlab.com/SukkaW/ruleset.skk.moe
 
-## 规则组列表
+## Ruleset List
 
-- **Surge (Mac/iOS/tvOS)**，Surge 对所有类型的规则都有不同程度的优化
-  - `/List/domainset/`：`DOMAIN-SET`，不会触发 DNS 解析的、仅包含域名的规则组
-  - `/List/non_ip/`：`RULE-SET`，不会触发 DNS 解析的规则组
-  - `/List/ip/`：`RULE-SET`，会触发 DNS 解析的规则组
+- **Surge (Mac/iOS/tvOS)**: Surge optimizes all types of rules to varying degrees
+  - `/List/domainset/`: `DOMAIN-SET`, domain-only rulesets that do not trigger DNS resolution
+  - `/List/non_ip/`: `RULE-SET`, rulesets that do not trigger DNS resolution
+  - `/List/ip/`: `RULE-SET`, rulesets that trigger DNS resolution
 - **Mihomo**
-  - `/Clash/domainset/`：`domain & text`，不会触发 DNS 解析的、仅域名的规则组截至 2025 年 5 月 3 日 UTC+0，Mihomo 仅针对 behavior 为 domain 和 ipcidr 的规则组进行了优化
-  - `/Clash/non_ip/`：`classical & text`，不会触发 DNS 解析的规则组
-  - `/Clash/ip/`：`classical & text` 或 `ipcidr & text`，会触发 DNS 解析的规则组
+  - `/Clash/domainset/`: `domain & text`, domain-only rulesets that do not trigger DNS resolution. As of May 3, 2025 UTC+0, Mihomo only optimizes rulesets whose behavior is domain or ipcidr
+  - `/Clash/non_ip/`: `classical & text`, rulesets that do not trigger DNS resolution
+  - `/Clash/ip/`: `classical & text` or `ipcidr & text`, rulesets that trigger DNS resolution
 - **Clash Premium (Dreamacro)**
-  - 不单独提供 `/LegacyClashPremium/domainset/` 的 DOMAIN SET 的格式，请使用 Mihomo 的 DOMAIN SET 规则组（`/Clash/domainset/`），behavior 和 format 一致。
-  - `/LegacyClashPremium/non_ip/`：`classical & text`，不会触发 DNS 解析的规则组
-  - `/LegacyClashPremium/ip/`：`classical & text` 或 `ipcidr & text`，会触发 DNS 解析的规则组
-- **sing-box**，sing-box 只提供一种规则格式 Headless Rule 且有优化
-  - `/sing-box/domainset/`：不会触发 DNS 解析的、仅包含域名的规则
-  - `/sing-box/non_ip/`：不会触发 DNS 解析的规则
-  - `/sing-box/ip/`：会触发 DNS 解析的规则
+  - The DOMAIN SET format is not provided separately under `/LegacyClashPremium/domainset/`; please use Mihomo's DOMAIN SET rulesets (`/Clash/domainset/`), whose behavior and format are identical.
+  - `/LegacyClashPremium/non_ip/`: `classical & text`, rulesets that do not trigger DNS resolution
+  - `/LegacyClashPremium/ip/`: `classical & text` or `ipcidr & text`, rulesets that trigger DNS resolution
+- **sing-box**: sing-box only provides one rule format, Headless Rule, which is optimized
+  - `/sing-box/domainset/`: domain-only rules that do not trigger DNS resolution
+  - `/sing-box/non_ip/`: rules that do not trigger DNS resolution
+  - `/sing-box/ip/`: rules that trigger DNS resolution
 - **Surfboard for Android**
-  - 不单独提供 `/Surfboard/domainset/` 的 DOMAIN-SET，请使用 Surge 的 DOMAIN SET 规则组（`/List/domainset/`）。
-  - `/Surfboard/non_ip/`：`RULE-SET`，不会触发 DNS 解析的规则
-  - `/Surfboard/ip/`：`RULE-SET`，会触发 DNS 解析的规则
+  - DOMAIN-SET is not provided separately under `/Surfboard/domainset/`; please use Surge's DOMAIN SET rulesets (`/List/domainset/`).
+  - `/Surfboard/non_ip/`: `RULE-SET`, rules that do not trigger DNS resolution
+  - `/Surfboard/ip/`: `RULE-SET`, rules that trigger DNS resolution
 
-**请务必按照 `domainset`、`non_ip`、`ip`，和 README 中的顺序 将规则组添加到你的配置文件中，请 务必确保 所有 `domainset` 或 `non_ip` 规则组、以及你自己额外添加的 `DOMAIN`、`DOMAIN-SUFFIX`、`DOMAIN-KEYWORD` 规则，必须放置在所有的 `ip` 规则组、你自己添加的 `IP-CIDR`、`IP-CIDR6`、`IP-ASN` 和 `GEOIP` 规则之前，没有任何例外。**
+**Be sure to add the rulesets to your configuration file in the order of `domainset`, `non_ip`, `ip`, and the order used in this README. You must ensure that all `domainset` or `non_ip` rulesets, as well as any `DOMAIN`, `DOMAIN-SUFFIX`, and `DOMAIN-KEYWORD` rules you add yourself, are placed before all `ip` rulesets and any `IP-CIDR`, `IP-CIDR6`, `IP-ASN`, and `GEOIP` rules you add yourself, without exception.**
 
-假如 你将任何一个 `ip` 规则组、或你自己的 `IP-CIDR`、`IP-CIDR6`、`IP-ASN` 和 `GEOIP` 规则放置在任何一个 `domainset` 或 `non_ip` 规则组、你自己额外添加的 `DOMAIN`、`DOMAIN-SUFFIX`、`DOMAIN-KEYWORD` 规则之前，**那么你会立刻失去 Surge、Clash、Mihomo、Surfboard、以及本项目 为你提供的 DNS 污染保护，你将会彻底暴露在 GFW 的 DNS 污染之下。**
+If you place any `ip` ruleset, or your own `IP-CIDR`, `IP-CIDR6`, `IP-ASN`, and `GEOIP` rules, before any `domainset` or `non_ip` ruleset or any `DOMAIN`, `DOMAIN-SUFFIX`, and `DOMAIN-KEYWORD` rules you added yourself, **you will immediately lose the DNS pollution protection that Surge, Clash, Mihomo, Surfboard, and this project provide, and you will be completely exposed to the GFW's DNS pollution.**
 
-> Surge、Clash、Mihomo、Surfboard 会按照规则在配置中的顺序、从上到下逐一匹配，当且仅当进行 IP 类规则的匹配、FINAL、或 direct 策略时，才会进行 DNS 解析。按照上述顺序添加规则组，可以尽可能避免你的设备对需要被代理的域名发起 DNS 解析、从而提供一定程度的所谓「DNS 污染」的保护。
+> Surge, Clash, Mihomo, and Surfboard match rules one by one from top to bottom in the order they appear in the configuration, and DNS resolution is performed if and only when matching IP-type rules, FINAL, or the direct policy. Adding the rulesets in the order above avoids, as far as possible, your device issuing DNS resolution for domains that need to be proxied, thereby providing a degree of protection against the so-called "DNS pollution".
 
-#### 广告拦截 / 隐私保护 / Malware 拦截 / Phishing 拦截
+#### Ad Blocking / Privacy Protection / Malware Blocking / Phishing Blocking
 
-- 自动生成
-- 数据来源、白名单域名列表和生成方式，请参考 [`build-reject-domainset.ts`](Build/build-reject-domainset.ts)
-- 仅建议在 Surge for Mac 上使用，移动平台请使用专门的工具（如 ADGuard for Android/iOS）以获得更好的性能
-- **不能替代浏览器广告屏蔽扩展（如 AdGuard for Browser）**
+- Automatically generated
+- For the data sources, the allowlist of domains, and how the list is generated, see [`build-reject-domainset.ts`](Build/build-reject-domainset.ts)
+- Recommended for Surge for Mac only; on mobile platforms, use a dedicated tool (such as AdGuard for Android/iOS) for better performance
+- **Not a replacement for browser ad-blocking extensions (such as AdGuard for Browser)**
 
 **Surge**
 
@@ -63,18 +63,18 @@
 # Non IP
 RULE-SET,https://ruleset.skk.moe/List/non_ip/reject-drop.conf,REJECT-DROP,pre-matching
 
-# 基础的 12 万拦截域名
+# Base list: 120,000 blocked domains
 DOMAIN-SET,https://ruleset.skk.moe/List/domainset/reject.conf,REJECT,extended-matching
-# 额外 9 万拦截域名，作为基础的补充，启用时需要搭配基础一起使用
+# Extra 90,000 blocked domains, a supplement to the base list; must be used together with the base list
 DOMAIN-SET,https://ruleset.skk.moe/List/domainset/reject_extra.conf,REJECT
-# 钓鱼网站拦截域名列表，共 13 万拦截域名
-# 在 Surge 5 for Mac（或更新版本），即使同时启用基础和额外的拦截域名也不会导致匹配性能下降或内存占用过高
+# Phishing site blocklist, 130,000 blocked domains in total
+# On Surge 5 for Mac (or newer), enabling both the base and extra blocked domains at the same time will not degrade matching performance or cause excessive memory usage
 # DOMAIN-SET,https://ruleset.skk.moe/List/domainset/reject_phishing.conf,REJECT
 RULE-SET,https://ruleset.skk.moe/List/non_ip/reject.conf,REJECT,extended-matching
 RULE-SET,https://ruleset.skk.moe/List/non_ip/reject-no-drop.conf,REJECT-NO-DROP,extended-matching
 # URL-REGEX
-# 需搭配 Surge 模块 https://ruleset.skk.moe/Modules/sukka_mitm_hostnames.sgmodule 使用
-# MITM 和 URL-REGEX 性能开销极大，不推荐使用
+# Must be used together with the Surge module https://ruleset.skk.moe/Modules/sukka_mitm_hostnames.sgmodule
+# MITM and URL-REGEX have a very high performance overhead and are not recommended
 # RULE-SET,https://ruleset.skk.moe/List/non_ip/reject-url-regex.conf,REJECT
 ```
 
@@ -115,7 +115,7 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/domainset/reject.txt
     path: ./sukkaw_ruleset/reject_domainset.txt
-  # 在 Clash 上，同时启用基础和额外的拦截域名会导致内存占用过高和匹配用时增加等性能问题
+  # On Clash, enabling both the base and extra blocked domains causes performance problems such as excessive memory usage and longer matching times
   reject_extra_domainset:
     type: http
     behavior: domain
@@ -148,11 +148,11 @@ rules:
   - RULE-SET,reject_ip,REJECT
 ```
 
-#### 搜狗输入法
+#### Sogou Input Method
 
-- 人工维护
-- 该规则组用于避免搜狗输入法将你输入的每一个字符自动收集并通过 `get.sogou.com/q` 等域名回传
-- 影响搜狗输入法账号同步、词库更新、问题反馈
+- Manually maintained
+- This ruleset prevents Sogou Input Method from automatically collecting every character you type and sending it back through domains such as `get.sogou.com/q`
+- Affects Sogou Input Method account sync, dictionary updates, and issue feedback
 
 **Surge**
 
@@ -176,12 +176,12 @@ rules:
   - RULE-SET,sogouinput,REJECT
 ```
 
-#### Speedtest 测速域名
+#### Speedtest Domains
 
-- `speedtest.net` 测速点通过 Speedtest API 获取数十个常见地区的测速服务器域名
-- 人工维护 macOS `netQuality` 等其它测速工具的测速服务器域名
-- `fast.com` 测速点和 Netflix CDN 共享基础设施和域名、影响流媒体分流，故不包含在此规则组中
-- 实现指定使用某网络出口测速、同时不影响通过主要出口正常上网
+- `speedtest.net` test points: the domains of speed test servers in dozens of common regions, fetched through the Speedtest API
+- Manually maintained domains of the speed test servers used by other speed test tools such as macOS `netQuality`
+- `fast.com` test points share infrastructure and domains with the Netflix CDN and would affect streaming traffic routing, so they are not included in this ruleset
+- Lets you run speed tests over a designated network egress without affecting normal internet access through the primary egress
 
 **Surge**
 
@@ -205,12 +205,12 @@ rules:
   - RULE-SET,speedtest,[Replace with your policy]
 ```
 
-#### 常见静态 CDN
+#### Common Static CDNs
 
-- 自动生成 + 人工维护
-- 包含所有常见静态资源 CDN 域名、对象存储域名
-- 如果你正在使用商业性质的公共代理服务、且你的服务商提供按低倍率结算流量消耗的节点，可使用上述规则组将流量分配给这部分节点
-- 包含部分未包含在 `global.conf` 的域名，因此即使你用不到商业性质的公共代理服务提供的低倍率节点也不需要分流，也依然建议使用这部分规则，此时分配与 `global.conf` 相同的策略即可
+- Automatically generated + manually maintained
+- Includes all common static resource CDN domains and object storage domains
+- If you are using a commercial public proxy service and your provider offers nodes that bill traffic consumption at a low rate multiplier, you can use the rulesets above to route traffic to those nodes
+- Includes some domains that are not in `global.conf`, so even if you have no use for the low-rate nodes offered by commercial public proxy services and do not need to split this traffic, it is still recommended to use these rules; in that case, just assign them the same policy as `global.conf`
 
 **Surge**
 
@@ -243,46 +243,46 @@ rules:
   - RULE-SET,cdn_non_ip,[Replace with your policy]
 ```
 
-#### 流媒体
+#### Streaming
 
-- 人工维护
-- 包含 4gtv、AbemaTV、All4、Amazon Prime Video、Apple TV、Apple Music TV、Bahamut、BBC、Bilibili Intl、DAZN、Deezer、Disney+、Discovery+、DMM、encoreTVB、Fox Now、Fox+、HBO GO/Now/Max/Asia、Hulu、HWTV、JOOX、Jwplayer、KKBOX、KKTV、Line TV、Naver TV、myTV Super、Netflix、niconico、Now E、Paramount+、PBS、Peacock、Pandora、PBS、Pornhub、SoundCloud、PBS、Spotify、TaiwanGood、Tiktok Intl、Twitch、ViuTV、ShowTime、iQiYi Global、Himalaya Podcast、Overcast、WeTV 的规则组
+- Manually maintained
+- Includes rulesets for 4gtv, AbemaTV, All4, Amazon Prime Video, Apple TV, Apple Music TV, Bahamut, BBC, Bilibili Intl, DAZN, Deezer, Disney+, Discovery+, DMM, encoreTVB, Fox Now, Fox+, HBO GO/Now/Max/Asia, Hulu, HWTV, JOOX, Jwplayer, KKBOX, KKTV, Line TV, Naver TV, myTV Super, Netflix, niconico, Now E, Paramount+, PBS, Peacock, Pandora, PBS, Pornhub, SoundCloud, PBS, Spotify, TaiwanGood, Tiktok Intl, Twitch, ViuTV, ShowTime, iQiYi Global, Himalaya Podcast, Overcast, and WeTV
 
 **Surge**
 
 ```ini
 # Non IP
-# 北美相关流媒体
+# North America-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/non_ip/stream_us.conf,[Replace with your policy]
-# 欧洲相关流媒体
+# Europe-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/non_ip/stream_eu.conf,[Replace with your policy]
-# 日本相关流媒体
+# Japan-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/non_ip/stream_jp.conf,[Replace with your policy]
-# 韩国相关流媒体
+# South Korea-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/non_ip/stream_kr.conf,[Replace with your policy]
-# 香港相关流媒体
+# Hong Kong-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/non_ip/stream_hk.conf,[Replace with your policy]
-# 台湾相关流媒体
+# Taiwan-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/non_ip/stream_tw.conf,[Replace with your policy]
-# 所有流媒体（包括上述所有流媒体）
+# All streaming services (including all of the above)
 RULE-SET,https://ruleset.skk.moe/List/non_ip/stream.conf,[Replace with your policy]
 ```
 
 ```ini
 # IP
-# 北美相关流媒体
+# North America-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/ip/stream_us.conf,[Replace with your policy]
-# 欧洲相关流媒体
+# Europe-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/ip/stream_eu.conf,[Replace with your policy]
-# 日本相关流媒体
+# Japan-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/ip/stream_jp.conf,[Replace with your policy]
-# 韩国相关流媒体
+# South Korea-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/ip/stream_kr.conf,[Replace with your policy]
-# 香港相关流媒体
+# Hong Kong-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/ip/stream_hk.conf,[Replace with your policy]
-# 台湾相关流媒体
+# Taiwan-related streaming services
 RULE-SET,https://ruleset.skk.moe/List/ip/stream_tw.conf,[Replace with your policy]
-# 所有流媒体（包括上述所有流媒体）
+# All streaming services (including all of the above)
 RULE-SET,https://ruleset.skk.moe/List/ip/stream.conf,[Replace with your policy]
 ```
 
@@ -290,7 +290,7 @@ RULE-SET,https://ruleset.skk.moe/List/ip/stream.conf,[Replace with your policy]
 
 ```yaml
 rule-providers:
-  # 北美相关流媒体
+  # North America-related streaming services
   stream_us_non_ip:
     type: http
     behavior: classical
@@ -305,7 +305,7 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/ip/stream_us.txt
     path: ./sukkaw_ruleset/stream_us_ip.txt
-  # 欧洲相关流媒体
+  # Europe-related streaming services
   stream_eu_non_ip:
     type: http
     behavior: classical
@@ -320,7 +320,7 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/ip/stream_eu.txt
     path: ./sukkaw_ruleset/stream_eu_ip.txt
-  # 日本相关流媒体
+  # Japan-related streaming services
   stream_jp_non_ip:
     type: http
     behavior: classical
@@ -335,7 +335,7 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/ip/stream_jp.txt
     path: ./sukkaw_ruleset/stream_jp_ip.txt
-  # 韩国相关流媒体
+  # South Korea-related streaming services
   stream_kr_non_ip:
     type: http
     behavior: classical
@@ -350,7 +350,7 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/ip/stream_kr.txt
     path: ./sukkaw_ruleset/stream_kr_ip.txt
-  # 香港相关流媒体
+  # Hong Kong-related streaming services
   stream_hk_non_ip:
     type: http
     behavior: classical
@@ -365,7 +365,7 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/ip/stream_hk.txt
     path: ./sukkaw_ruleset/stream_hk_ip.txt
-  # 台湾相关流媒体
+  # Taiwan-related streaming services
   stream_tw_non_ip:
     type: http
     behavior: classical
@@ -380,7 +380,7 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/ip/stream_tw.txt
     path: ./sukkaw_ruleset/stream_tw_ip.txt
-  # 所有流媒体（包括上述所有流媒体）
+  # All streaming services (including all of the above)
   stream_non_ip:
     type: http
     behavior: classical
@@ -423,8 +423,8 @@ rules:
 
 #### AI
 
-- 域名和 IP 规则，人工维护 + 自动更新
-- 包含 OpenAI、Google Gemini、Claude、Perplexity 等
+- Domain and IP rules, manually maintained + automatically updated
+- Includes OpenAI, Google Gemini, Claude, Perplexity, and more
 
 **Surge**
 
@@ -474,12 +474,12 @@ rules:
 
 #### Telegram
 
-- 域名规则 人工维护
-- IP CIDR 规则 自动生成（数据来源：[`https://core.telegram.org/resources/cidr.txt`](https://core.telegram.org/resources/cidr.txt)）
-- ASN 规则 人工维护
+- Domain rules: manually maintained
+- IP CIDR rules: automatically generated (data source: [`https://core.telegram.org/resources/cidr.txt`](https://core.telegram.org/resources/cidr.txt))
+- ASN rules: manually maintained
 
-> 推荐仅使用 IP CIDR 规则。IP CIDR 规则数据完全来自 Telegram 官方发布的 CIDR 列表，不包含 Telegram 尚未启用的 CDN、数据中心的 IP。
-> ASN 规则仅适合作为补充；搭配非官方 MaxMind GeoLite 数据库（例如 GeoIP2-CN）使用时会影响匹配。
+> Using only the IP CIDR rules is recommended. The IP CIDR rule data comes entirely from the CIDR list officially published by Telegram and does not include the IPs of CDNs and data centers that Telegram has not yet put into use.
+> The ASN rules are only suitable as a supplement; using them together with an unofficial MaxMind GeoLite database (such as GeoIP2-CN) will affect matching.
 
 **Surge**
 
@@ -528,9 +528,9 @@ rules:
 
 #### Apple CDN
 
-- 自动生成
-- 规则组包含 Apple, Inc. 在中华人民共和国完成工信部 ICP 备案和公安网备、且在中华人民共和国境内提供 HTTP 服务的域名，如果由于某些原因需要代理其中部分域名，请自行针对域名编写规则、并添加到当前规则组之前。
-- 数据来源 [`felixonmars/dnsmasq-china-list`](https://github.com/felixonmars/dnsmasq-china-list/blob/master/apple.china.conf)
+- Automatically generated
+- This ruleset contains the domains of Apple, Inc. that have completed the MIIT ICP filing and the public security network filing in the People's Republic of China and provide HTTP services within the People's Republic of China. If for some reason you need to proxy some of these domains, write your own rules for those domains and add them before this ruleset.
+- Data source: [`felixonmars/dnsmasq-china-list`](https://github.com/felixonmars/dnsmasq-china-list/blob/master/apple.china.conf)
 
 **Surge**
 
@@ -556,7 +556,7 @@ rules:
 
 #### Apple Service
 
-- 人工维护
+- Manually maintained
 
 **Surge**
 
@@ -582,8 +582,8 @@ rules:
 
 #### Apple CN
 
-- 人工维护
-- 云上贵州（`icloud.com.cn`）和 苹果地图大陆特供版 等服务的域名。
+- Manually maintained
+- Domains of services such as Cloud Guizhou (`icloud.com.cn`) and the mainland-China-only edition of Apple Maps.
 
 **Surge**
 
@@ -609,9 +609,9 @@ rules:
 
 #### Microsoft CDN
 
-- 自动生成
-- 规则组包含 Microsoft 在中华人民共和国完成工信部 ICP 备案和公安网备、且在中华人民共和国境内提供 HTTP 服务的域名，如果由于某些原因需要代理其中部分域名，请自行针对域名编写规则、并添加到当前规则组之前。
-- 数据来源 [`felixonmars/dnsmasq-china-list`](https://github.com/felixonmars/dnsmasq-china-list/blob/master/apple.china.conf)
+- Automatically generated
+- This ruleset contains the domains of Microsoft that have completed the MIIT ICP filing and the public security network filing in the People's Republic of China and provide HTTP services within the People's Republic of China. If for some reason you need to proxy some of these domains, write your own rules for those domains and add them before this ruleset.
+- Data source: [`felixonmars/dnsmasq-china-list`](https://github.com/felixonmars/dnsmasq-china-list/blob/master/apple.china.conf)
 
 **Surge**
 
@@ -637,7 +637,7 @@ rules:
 
 #### Microsoft
 
-- 人工维护
+- Manually maintained
 
 **Surge**
 
@@ -661,9 +661,9 @@ rules:
   - RULE-SET,microsoft_non_ip,[Replace with your policy]
 ```
 
-#### 网易云音乐
+#### NetEase Cloud Music
 
-- 人工维护
+- Manually maintained
 
 **Surge**
 
@@ -709,12 +709,12 @@ rules:
   - RULE-SET,neteasemusic_ip,[Replace with your policy]
 ```
 
-#### 软件更新、操作系统等大文件下载
+#### Large File Downloads (Software Updates, Operating Systems, etc.)
 
-- 人工维护
-- 包含部分常见对象存储的域名
-- 这部分域名可能包含 Microsoft 和 Apple 的国内 CDN 节点。你可以搭配使用前文的 Microsoft CDN 和 Apple CDN 规则组、并分配直连策略。
-- 如果你正在使用商业性质的公共代理服务、且你的服务商提供按低倍率结算流量消耗的节点，可使用上述规则组将流量分配给这部分节点
+- Manually maintained
+- Includes the domains of some common object storage services
+- These domains may include Microsoft and Apple CDN nodes inside mainland China. You can use them together with the Microsoft CDN and Apple CDN rulesets above and assign the direct policy.
+- If you are using a commercial public proxy service and your provider offers nodes that bill traffic consumption at a low rate multiplier, you can use the rulesets above to route traffic to those nodes
 
 **Surge**
 
@@ -747,11 +747,11 @@ rules:
   - RULE-SET,download_non_ip,[Replace with your policy]
 ```
 
-#### 内网域名和局域网 IP
+#### Intranet Domains and LAN IPs
 
-- 人工维护
-- 域名列表包含 `.local` 和局域网 IP 的 `in-addr.arpa` 域名（即 AS112 域名）。这部分域名一般会被解析到局域网 IP、需要走内网 DNS 解析、需要直连访问。
-- Clash 没有内置局域网 IP 规则列表（Surge 内置有局域网 IP 规则列表 `LAN`），需要手动引入。
+- Manually maintained
+- The domain list contains `.local` and the `in-addr.arpa` domains of LAN IPs (i.e., AS112 domains). These domains are generally resolved to LAN IPs, need to be resolved by the internal DNS, and need to be accessed directly.
+- Clash has no built-in LAN IP rule list (Surge has a built-in LAN IP rule list, `LAN`), so it has to be imported manually.
 
 **Surge**
 
@@ -797,14 +797,14 @@ rules:
   - RULE-SET,lan_ip,DIRECT
 ```
 
-#### 中国大陆常见服务
+#### Common Mainland China Services
 
-- 人工维护
+- Manually maintained
 
 **Surge**
 
 ```ini
-# 中国大陆境内（最常见的使用场景）：仅需配置 domestic，直连即可
+# Inside mainland China (the most common scenario): only domestic needs to be configured, and DIRECT is enough
 # Non IP
 RULE-SET,https://ruleset.skk.moe/List/non_ip/domestic.conf,DIRECT
 
@@ -813,7 +813,7 @@ RULE-SET,https://ruleset.skk.moe/List/ip/domestic.conf,DIRECT
 ```
 
 ```ini
-# 其他国家和地区、需要通过回国节点访问中国大陆服务：domestic_cdn 优先直连，domestic 使用回国节点
+# In other countries and regions, when you need a back-to-China node to access mainland China services: domestic_cdn goes direct first, and domestic uses the back-to-China node
 # Non IP
 RULE-SET,https://ruleset.skk.moe/List/non_ip/domestic_cdn.conf,DIRECT
 RULE-SET,https://ruleset.skk.moe/List/non_ip/domestic.conf,Back To China Proxy
@@ -833,7 +833,7 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/non_ip/domestic.txt
     path: ./sukkaw_ruleset/domestic_non_ip.txt
-  # 仅在其他国家和地区、需要通过回国节点访问中国大陆服务时才需要引入
+  # Only needed in other countries and regions, when you need a back-to-China node to access mainland China services
   domestic_cdn_non_ip:
     type: http
     behavior: classical
@@ -851,7 +851,7 @@ rule-providers:
 ```
 
 ```yaml
-# 中国大陆境内（最常见的使用场景）：仅需配置 domestic，直连即可
+# Inside mainland China (the most common scenario): only domestic needs to be configured, and DIRECT is enough
 rules:
   # Non IP
   - RULE-SET,domestic_non_ip,DIRECT
@@ -860,7 +860,7 @@ rules:
 ```
 
 ```yaml
-# 其他国家和地区、需要通过回国节点访问中国大陆服务：domestic_cdn 优先直连，domestic 使用回国节点
+# In other countries and regions, when you need a back-to-China node to access mainland China services: domestic_cdn goes direct first, and domestic uses the back-to-China node
 rules:
   # Non IP
   - RULE-SET,domestic_cdn_non_ip,DIRECT
@@ -869,11 +869,11 @@ rules:
   - RULE-SET,domestic_ip,Back To China Proxy
 ```
 
-#### 需直连的服务
+#### Services That Should Go Direct
 
-- 人工维护
-- 包含热点认证页面、PT 站点、下载工具和代理工具的进程名、局域网缓存服务、学术数据库等无论身处何处都应当直连的服务
-- 直连即可
+- Manually maintained
+- Includes hotspot authentication (captive portal) pages, PT sites, process names of download tools and proxy tools, LAN cache services, academic databases, and other services that should be accessed directly wherever you are
+- Just use DIRECT
 
 **Surge**
 
@@ -901,23 +901,23 @@ rules:
   - RULE-SET,direct_non_ip,DIRECT
 ```
 
-#### 其他国家和地区常见服务
+#### Common Services in Other Countries and Regions
 
-- 人工维护
-- 包含 Google、Reddit、Facebook、Twitter、Discord、GitHub 等在中国大陆境内无法直接访问、或直接访问体验不佳的其他国家和地区常见服务，以及一批其他国家和地区的 ccTLD 和 gTLD
-- **绝大多数用户位于中国大陆境内，这部分规则使用代理即可**
-- 仅当你身处其他国家和地区、只需要通过回国节点访问中国大陆服务、其余流量全部直连时，才需要将这部分规则直连（此时你的 `FINAL` / `MATCH` 通常也是直连）
+- Manually maintained
+- Includes common services from other countries and regions, such as Google, Reddit, Facebook, Twitter, Discord, and GitHub, that cannot be accessed directly from within mainland China or that offer a poor experience when accessed directly, as well as a batch of ccTLDs and gTLDs of other countries and regions
+- **The vast majority of users are located in mainland China; for these rules, just use a proxy**
+- You only need to set these rules to direct if you are located in another country or region, only need a back-to-China node to access mainland China services, and send all other traffic direct (in which case your `FINAL` / `MATCH` is usually direct as well)
 
 **Surge**
 
 ```ini
-# 中国大陆境内（最常见的使用场景）：使用代理
+# Inside mainland China (the most common scenario): use a proxy
 # Non IP
 RULE-SET,https://ruleset.skk.moe/List/non_ip/global.conf,Proxy
 ```
 
 ```ini
-# 其他国家和地区、仅需通过回国节点访问中国大陆服务：直连即可
+# In other countries and regions, when you only need a back-to-China node to access mainland China services: DIRECT is enough
 # Non IP
 RULE-SET,https://ruleset.skk.moe/List/non_ip/global.conf,DIRECT
 ```
@@ -936,14 +936,14 @@ rule-providers:
 ```
 
 ```yaml
-# 中国大陆境内（最常见的使用场景）：使用代理
+# Inside mainland China (the most common scenario): use a proxy
 # Non IP
 rules:
   - RULE-SET,global_non_ip,Proxy
 ```
 
 ```yaml
-# 其他国家和地区、仅需通过回国节点访问中国大陆服务：直连即可
+# In other countries and regions, when you only need a back-to-China node to access mainland China services: DIRECT is enough
 # Non IP
 rules:
   - RULE-SET,global_non_ip,DIRECT
@@ -951,9 +951,9 @@ rules:
 
 #### chnroute CIDR
 
-- 自动生成
-- IPv4 [原始数据](https://github.com/misakaio/chnroutes2) 由 Misaka Network, Inc. 以 [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) 协议发布，二次处理补充合并了 Misaka Network, Inc. 收不到 BGP 路由的部分国内段、排除了被 Misaka Network, Inc. 误收的在香港广播的 IP 段（通常由 中国移动国际 CMI 广播）
-- IPv6 原始数据 由 [gaoyifan/china-operator-ip](https://github.com/gaoyifan/china-operator-ip) 以 MIT 协议发布
+- Automatically generated
+- IPv4 [raw data](https://github.com/misakaio/chnroutes2) is published by Misaka Network, Inc. under the [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) license. It is reprocessed to add and merge some domestic (mainland China) segments whose BGP routes Misaka Network, Inc. does not receive, and to exclude IP segments announced in Hong Kong that Misaka Network, Inc. collected by mistake (usually announced by China Mobile International, CMI)
+- IPv6 raw data is published by [gaoyifan/china-operator-ip](https://github.com/gaoyifan/china-operator-ip) under the MIT license
 
 **Surge**
 
@@ -987,7 +987,7 @@ rules:
   # - RULE-SET,china_ip_ipv6,[Replace with your policy]
 ```
 
-## Surge 模块列表
+## Surge Module List
 
 - Sukka URL Rewrite: `https://ruleset.skk.moe/Modules/sukka_url_rewrite.sgmodule`
 - Sukka Surge Network Test Domain: `https://ruleset.skk.moe/Modules/sukka_surge_network_test_domain.sgmodule`
@@ -999,29 +999,29 @@ rules:
 
 ## FAQ
 
-**这是什么？**
+**What is this?**
 
-我也不知道。
+I don't know either.
 
-**有适用于 Clash 的规则组吗？**
+**Are there rulesets for Clash?**
 
-规则组支持 Mihomo（mihomo）。「Surge 模块」不适用于任何版本的 Clash。
+The rulesets support Mihomo (mihomo). The "Surge modules" are not compatible with any version of Clash.
 
-**有适用于 Shadowrocket、Quantumult X、Loon、V2RayNG 的规则组吗？**
+**Are there rulesets for Shadowrocket, Quantumult X, Loon, or V2RayNG?**
 
-没有。而且未来 **一定** 不会有。
+No. And there **definitely** never will be.
 
-**这些规则组可被用于 Surfboard 吗？**
+**Can these rulesets be used with Surfboard?**
 
-如果 Surfboard 能够完整解析 Surge 的所有 Syntax，且在导入 / 处理规则组时、不被支持的 Syntax（如涉及到 MITM 的 `URL-REGEX`、仅适用于 HTTP/HTTPS 请求的 `USER-AGENT`、仅支持 PC/Mac 平台的 `PROCESS-NAME`）在处理时仅 Silent Error，则可用于 Surfboard，反之则不适用。
+If Surfboard can fully parse all of Surge's syntax, and when importing / processing rulesets it only silently errors on unsupported syntax (such as `URL-REGEX`, which involves MITM; `USER-AGENT`, which only applies to HTTP/HTTPS requests; and `PROCESS-NAME`, which is only supported on PC/Mac platforms), then it can be used with Surfboard; otherwise it cannot.
 
-**我使用你的规则组，结果出了问题，我该如何反馈？**
+**I used your rulesets and something went wrong. How do I report it?**
 
-不，你不能。
+No, you can't.
 
-**那我能参与维护项目、修复问题吗？**
+**Can I help maintain the project and fix issues, then?**
 
-如果你的 Pull Request 出现在了我 GitHub Notification Inbox 中、然后被我看到了的话，我会 Review 的。
+If your Pull Request shows up in my GitHub Notification Inbox and I happen to see it, I will review it.
 
 ## License
 
