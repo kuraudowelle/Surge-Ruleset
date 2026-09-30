@@ -2,9 +2,9 @@ import { SpanCategory } from '../../trace';
 import type { Span } from '../../trace';
 import { HostnameSmolTrie } from 'hntrie/smol';
 import { not, nullthrow } from 'foxts/guard';
-import { fastIpVersion } from 'foxts/fast-ip-version';
 import { addArrayElementsToSet } from 'foxts/add-array-elements-to-set';
 import type { MaybePromise } from '../misc';
+import { getCidrVersion } from '../cidr-lines';
 import { normalizeSurgeProtocol } from '../surge-protocol';
 import type { BaseWriteStrategy } from '../writing-strategy/base';
 import { SurgeMitmSgmodule } from '../writing-strategy/surge';
@@ -318,7 +318,7 @@ export class FileOutput {
   };
 
   addAnyCIDR(cidr: string, noResolve = false) {
-    const version = fastIpVersion(cidr);
+    const version = getCidrVersion(cidr);
     if (version === 0) return this;
 
     let list: Set<string>;
@@ -338,7 +338,7 @@ export class FileOutput {
 
     for (let i = 0, len = cidrs.length; i < len; i++) {
       let cidr = cidrs[i];
-      const version = fastIpVersion(cidr);
+      const version = getCidrVersion(cidr);
       if (version === 0) {
         continue; // skip invalid IPs
       }
@@ -353,32 +353,35 @@ export class FileOutput {
     return this;
   }
 
-  bulkAddCIDR4(cidrs: string[]) {
+  /**
+   * The ranges of a family that the caller has already sorted them into. A value that is not an address or a range of that
+   * family is data from upstream that is wrong, and it is not written: the build of the ruleset fails, and the last good
+   * ruleset stays, which is better than publishing routes that nobody meant.
+   */
+  private addCidrs(list: Set<string>, cidrs: string[], version: 4 | 6) {
     for (let i = 0, len = cidrs.length; i < len; i++) {
-      this.ipcidr.add(FileOutput.ipToCidr(cidrs[i], 4));
+      if (getCidrVersion(cidrs[i]) !== version) {
+        throw new TypeError(`${this.id}: not an IPv${version} address or range: ${cidrs[i]}`);
+      }
+      list.add(FileOutput.ipToCidr(cidrs[i], version));
     }
     return this;
+  }
+
+  bulkAddCIDR4(cidrs: string[]) {
+    return this.addCidrs(this.ipcidr, cidrs, 4);
   }
 
   bulkAddCIDR4NoResolve(cidrs: string[]) {
-    for (let i = 0, len = cidrs.length; i < len; i++) {
-      this.ipcidrNoResolve.add(FileOutput.ipToCidr(cidrs[i], 4));
-    }
-    return this;
+    return this.addCidrs(this.ipcidrNoResolve, cidrs, 4);
   }
 
   bulkAddCIDR6(cidrs: string[]) {
-    for (let i = 0, len = cidrs.length; i < len; i++) {
-      this.ipcidr6.add(FileOutput.ipToCidr(cidrs[i], 6));
-    }
-    return this;
+    return this.addCidrs(this.ipcidr6, cidrs, 6);
   }
 
   bulkAddCIDR6NoResolve(cidrs: string[]) {
-    for (let i = 0, len = cidrs.length; i < len; i++) {
-      this.ipcidr6NoResolve.add(FileOutput.ipToCidr(cidrs[i], 6));
-    }
-    return this;
+    return this.addCidrs(this.ipcidr6NoResolve, cidrs, 6);
   }
 
   /**

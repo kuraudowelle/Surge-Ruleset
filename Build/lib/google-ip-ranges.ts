@@ -1,5 +1,5 @@
 import { exclude, merge } from 'fast-cidr-tools';
-import { fastIpVersion } from 'foxts/fast-ip-version';
+import { getPrefixedCidrVersion } from './cidr-lines';
 
 export interface GoogleIpRanges {
   cidr4: string[],
@@ -46,9 +46,9 @@ export function parseGoogleIpRanges(data: unknown): GoogleIpRanges {
       throw new TypeError(`Invalid Google IP ranges entry at prefixes[${i}]`);
     }
 
-    if ('ipv4Prefix' in entry && typeof entry.ipv4Prefix === 'string' && fastIpVersion(entry.ipv4Prefix) === 4) {
+    if ('ipv4Prefix' in entry && typeof entry.ipv4Prefix === 'string' && getPrefixedCidrVersion(entry.ipv4Prefix) === 4) {
       cidr4.add(entry.ipv4Prefix);
-    } else if ('ipv6Prefix' in entry && typeof entry.ipv6Prefix === 'string' && fastIpVersion(entry.ipv6Prefix) === 6) {
+    } else if ('ipv6Prefix' in entry && typeof entry.ipv6Prefix === 'string' && getPrefixedCidrVersion(entry.ipv6Prefix) === 6) {
       cidr6.add(entry.ipv6Prefix);
     } else {
       throw new TypeError(`Invalid Google IP ranges entry at prefixes[${i}]`);

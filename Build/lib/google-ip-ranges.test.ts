@@ -66,6 +66,19 @@ describe('parseGoogleIpRanges', () => {
   });
 });
 
+describe('parseGoogleIpRanges: what only looks like a range', () => {
+  const creationTime = '2026-09-29T19:05:03';
+
+  it('refuses an address that is not one, and a range without its prefix length, instead of publishing it', () => {
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv4Prefix: '8.8.8.0/24' }, { ipv4Prefix: '999.1.1.1/24' }] })).toThrow('prefixes[1]');
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv6Prefix: '1:2:3' }] })).toThrow('prefixes[0]');
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv4Prefix: '8.8.8.0/33' }] })).toThrow('prefixes[0]');
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv6Prefix: '2001:4860::/129' }] })).toThrow('prefixes[0]');
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv4Prefix: '8.8.8.8' }] })).toThrow('prefixes[0]');
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv6Prefix: '2001:4860::1' }] })).toThrow('prefixes[0]');
+  });
+});
+
 describe('subtractGoogleCloudRanges', () => {
   const creationTime = new Date('2026-09-29T19:05:03Z');
   const ranges = (cidr4: string[], cidr6: string[]) => ({ cidr4, cidr6, creationTime });

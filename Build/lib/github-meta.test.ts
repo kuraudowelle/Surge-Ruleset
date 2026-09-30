@@ -171,15 +171,36 @@ describe('parseGitHubMeta', () => {
     expect(skipped).toEqual(['*.com', '*.co.uk']);
   });
 
-  it('skips values that are not hostnames or address ranges, and says so', () => {
+  it('skips values that are not hostnames, and says so', () => {
     const { hostnames, cidr4, skipped } = parseGitHubMeta(createMeta({
-      web: ['192.30.252.0/22', 'not an address'],
       domains: { website: ['github.com', 'not a hostname', '1.2.3.4'] }
     }));
 
     expect(hostnames).toEqual(['github.com']);
     expect(cidr4).toInclude('192.30.252.0/22');
-    expect(skipped).toEqual(['not a hostname', '1.2.3.4', 'not an address']);
+    expect(skipped).toEqual(['not a hostname', '1.2.3.4']);
+  });
+
+  it('refuses a range that is not an IP range with a prefix length, instead of publishing it or leaving it out', () => {
+    // what a classifier of dots and colons takes for an address
+    expect(() => parseGitHubMeta(createMeta({ web: ['192.30.252.0/22', '999.1.1.1/24'] }))).toThrow('web has "999.1.1.1/24", which is not an IP range with a prefix length');
+    expect(() => parseGitHubMeta(createMeta({ api: ['1:2:3'] }))).toThrow('api has "1:2:3"');
+    expect(() => parseGitHubMeta(createMeta({ git: ['10.0.0.0/33'] }))).toThrow('git has "10.0.0.0/33"');
+    expect(() => parseGitHubMeta(createMeta({ pages: ['2a0a:a440::/129'] }))).toThrow('pages has');
+    // a bare address is not the notation of the meta API
+    expect(() => parseGitHubMeta(createMeta({ packages: ['192.0.2.1'] }))).toThrow('packages has "192.0.2.1"');
+    expect(() => parseGitHubMeta(createMeta({ web: ['not an address'] }))).toThrow('web has "not an address"');
+  });
+
+  it('keeps every range that is one, IPv4 and IPv6', () => {
+    const { cidr4, cidr6 } = parseGitHubMeta(createMeta({ web: ['192.30.252.0/22', '2a0a:a440::/29', '  203.0.113.0/24  '] }));
+
+    expect(cidr4).toInclude('192.30.252.0/22', '203.0.113.0/24');
+    expect(cidr6).toInclude('2a0a:a440::/29');
+  });
+
+  it('does not read the lists of addresses that it does not use, whatever they hold', () => {
+    expect(parseGitHubMeta(createMeta({ hooks: ['not an address'], actions: ['999.1.1.1/24'] })).cidr4).toInclude('192.30.252.0/22');
   });
 
   it('goes on with the keys that are there when GitHub has added or dropped one', () => {

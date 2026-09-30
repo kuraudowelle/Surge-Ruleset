@@ -25,6 +25,15 @@ export function getCidrVersion(value: string): 0 | 4 | 6 {
 }
 
 /**
+ * {@link getCidrVersion} for a range that an API publishes: an address, a slash and a prefix length (`10.0.0.0/8`). A bare
+ * address is 0 here: a list that does not write its ranges this way is not the list that the caller was written for, and
+ * `1:2:3` or `999.1.1.1/24` are not addresses whatever the punctuation looks like.
+ */
+export function getPrefixedCidrVersion(value: string): 0 | 4 | 6 {
+  return value.includes('/') ? getCidrVersion(value) : 0;
+}
+
+/**
  * Reads a list with an IP range on every line, like the ones of https://github.com/v2fly/geoip/tree/release/text
  *
  *     # comment
