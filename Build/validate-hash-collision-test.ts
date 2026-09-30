@@ -9,9 +9,12 @@ import { split1st } from 'foxts/split-nth';
 (async () => {
   const hashMap = new Map<string, Set<string>>();
 
-  const runHash = async (inputs: string[]) => {
+  const runHash = async (inputs: ReadonlyArray<string | undefined>) => {
     for (let i = 0, len = inputs.length; i < len; i++) {
       const input = inputs[i];
+      if (input === undefined) {
+        continue; // a line of a ruleset without a value has nothing to hash
+      }
       const hash = await xxhash3(input);
       if (!hashMap.has(hash)) {
         hashMap.set(hash, new Set());

@@ -1,7 +1,7 @@
 import { describe, it } from 'mocha';
 import { expect } from 'earl';
 
-import { RuleSet, SUPPORTED_RULE_TYPES, allMatches, firstMatch } from './surge-rules';
+import { RuleSet, SUPPORTED_RULE_TYPES, allMatches, firstMatch, leavesOf, optionProblem } from './surge-rules';
 import type { OrderedRuleSet, Request } from './surge-rules';
 
 const ruleSet = (content: string[], name = 'test.conf') => new RuleSet(name, content.join('\n'));
@@ -189,10 +189,169 @@ describe('RuleSet: logical rules', () => {
     expect(matches(rules, { hostname: 'c.example.com', process: 'other' })).toEqual(null);
   });
 
-  it('never matches a logical rule that holds a type it cannot evaluate, and counts it', () => {
+  it('never matches a logical rule that holds a type it cannot evaluate, and counts that type', () => {
     const rules = ruleSet([String.raw`AND,((DOMAIN-SUFFIX,example.com),(URL-REGEX,^https://example\.com/))`]);
     expect(rules.match({ hostname: 'example.com', destIp: '1.1.1.1' })).toEqual(null);
-    expect(rules.unsupported).toEqual(new Map([['AND', 1]]));
+    // the type inside is what the rule cannot be evaluated for, and it is not the AND
+    expect(rules.unsupported).toEqual(new Map([['URL-REGEX', 1]]));
+  });
+
+  it('has the types of the rules inside a logical rule, to any depth', () => {
+    const rules = ruleSet(['AND,((DOMAIN,a.example.com),(OR,((PROCESS-NAME,tool),(NOT,((SRC-IP,10.0.0.0/8))))))']);
+    expect([...rules.types].sort()).toEqual(['AND', 'DOMAIN', 'NOT', 'OR', 'PROCESS-NAME', 'SRC-IP']);
+    expect(rules.unsupported).toEqual(new Map());
+  });
+
+  it('counts a type that it does not know inside a logical rule, and every one of them, at any depth', () => {
+    const rules = ruleSet([
+      'AND,((DOMAIN,a.example.com),(FOO,bar))',
+      'OR,((GEOIP,CN),(AND,((BAZ,1),(DOMAIN,b.example.com))))',
+      'DOMAIN,c.example.com'
+    ]);
+    expect(rules.unsupported).toEqual(new Map([['FOO', 1], ['GEOIP', 1], ['BAZ', 1]]));
+    expect([...rules.types].sort()).toEqual(['AND', 'BAZ', 'DOMAIN', 'FOO', 'GEOIP', 'OR']);
+    // a rule that it cannot evaluate never matches, and one that it can is not held back by them
+    expect(rules.match({ hostname: 'a.example.com' })).toEqual(null);
+    expect(rules.match({ hostname: 'c.example.com' })).toEqual({ line: 3, rule: 'DOMAIN,c.example.com' });
+  });
+});
+
+describe('RuleSet: address families and ranges, wherever a rule stands', () => {
+  it('takes an IPv4 range in IP-CIDR and an IPv6 range in IP-CIDR6, and says which is which', () => {
+    expect(() => ruleSet(['IP-CIDR,2001:db8::/32']).match({})).toThrow('test.conf:1: IP-CIDR takes an IPv4 address or range, and this is IPv6: IP-CIDR,2001:db8::/32');
+    expect(() => ruleSet(['IP-CIDR6,192.0.2.0/24']).match({})).toThrow('IP-CIDR6 takes an IPv6 address or range, and this is IPv4');
+    expect(matches(['IP-CIDR,192.0.2.0/24'], { destIp: '192.0.2.5' })).toEqual('IP-CIDR,192.0.2.0/24');
+    expect(matches(['IP-CIDR6,2001:db8::/32'], { destIp: '2001:db8::1' })).toEqual('IP-CIDR6,2001:db8::/32');
+  });
+
+  it('holds the rules inside an AND, an OR and a NOT to it as well, to any depth', () => {
+    expect(() => ruleSet(['DOMAIN,a.example.com', 'AND,((DOMAIN,a.example.com),(IP-CIDR,2001:db8::/32))']).match({}))
+      .toThrow('test.conf:2: IP-CIDR takes an IPv4 address or range, and this is IPv6');
+    expect(() => ruleSet(['OR,((AND,((IP-CIDR6,192.0.2.0/24),(DOMAIN,x.example.com))),(DOMAIN,y.example.com))']).match({}))
+      .toThrow('IP-CIDR6 takes an IPv6 address or range, and this is IPv4');
+    expect(() => ruleSet(['NOT,((IP-CIDR,2001:db8::/32))']).match({})).toThrow('IP-CIDR takes an IPv4');
+
+    const rules = ['AND,((DOMAIN,a.example.com),(IP-CIDR,192.0.2.0/24,no-resolve))'];
+    expect(matches(rules, { hostname: 'a.example.com', destIp: '192.0.2.5' })).toEqual(rules[0]);
+    expect(matches(rules, { hostname: 'a.example.com', destIp: '198.51.100.5' })).toEqual(null);
+  });
+
+  it('reads the length of a prefix as strictly as the builds do, inside a logical rule as well', () => {
+    expect(() => ruleSet(['IP-CIDR,192.0.2.0/33']).match({})).toThrow('not an address or a range');
+    expect(() => ruleSet(['IP-CIDR6,2001:db8::/129']).match({})).toThrow('not an address or a range');
+    expect(() => ruleSet(['AND,((DOMAIN,a.example.com),(IP-CIDR,192.0.2.0/33))']).match({})).toThrow('not an address or a range');
+    expect(() => ruleSet(['AND,((DOMAIN,a.example.com),(SRC-IP,10.0.0.0/33))']).match({})).toThrow('not an address or a range');
+    expect(() => ruleSet(['AND,((DOMAIN,a.example.com),(SRC-IP,not-an-address))']).match({})).toThrow('not an address or a range');
+  });
+});
+
+describe('RuleSet: the options of a rule', () => {
+  it('takes no-resolve on a rule for an address, and no other option', () => {
+    expect(matches(['IP-CIDR,192.0.2.0/24,no-resolve'], { destIp: '192.0.2.5' })).toEqual('IP-CIDR,192.0.2.0/24,no-resolve');
+    expect(matches(['IP-CIDR6,2001:db8::/32,no-resolve'], { destIp: '2001:db8::1' })).toEqual('IP-CIDR6,2001:db8::/32,no-resolve');
+    expect(ruleSet(['IP-ASN,714,no-resolve', 'GEOIP,CN,no-resolve']).unsupported).toEqual(new Map([['IP-ASN', 1], ['GEOIP', 1]]));
+    expect(() => ruleSet(['IP-CIDR,192.0.2.0/24,no-resolve,pre-matching']).match({}))
+      .toThrow('test.conf:1: IP-CIDR has the option pre-matching, and takes no-resolve only: a ruleset file cannot have it');
+    expect(() => ruleSet(['IP-CIDR,192.0.2.0/24,extended-matching']).match({})).toThrow('IP-CIDR has the option extended-matching, and takes no-resolve only');
+  });
+
+  it('refuses an option on a rule for a hostname, a process, an app, a protocol, a port or a source, and says what it is', () => {
+    expect(() => ruleSet(['DOMAIN,audit.invalid,garbage']).match({}))
+      .toThrow('test.conf:1: DOMAIN has the option garbage, and takes none: it is not an option that a rule of this type has: DOMAIN,audit.invalid,garbage');
+    expect(() => ruleSet(['DOMAIN,audit.invalid,pre-matching']).match({}))
+      .toThrow('DOMAIN has the option pre-matching, and takes none: a ruleset file cannot have it');
+    expect(() => ruleSet(['DOMAIN-SUFFIX,audit.invalid,pre-matching']).match({})).toThrow('DOMAIN-SUFFIX has the option pre-matching');
+    expect(() => ruleSet(['DOMAIN-KEYWORD,audit,garbage']).match({})).toThrow('DOMAIN-KEYWORD has the option garbage');
+    expect(() => ruleSet(['DOMAIN-WILDCARD,*.audit.invalid,garbage']).match({})).toThrow('DOMAIN-WILDCARD has the option garbage');
+    expect(() => ruleSet(['PROCESS-NAME,tool,no-resolve']).match({})).toThrow('PROCESS-NAME has the option no-resolve, and takes none');
+    expect(() => ruleSet(['USER-AGENT,Tool*,garbage']).match({})).toThrow('USER-AGENT has the option garbage');
+    expect(() => ruleSet(['PROTOCOL,QUIC,garbage']).match({})).toThrow('PROTOCOL has the option garbage');
+    expect(() => ruleSet(['DEST-PORT,443,garbage']).match({})).toThrow('DEST-PORT has the option garbage');
+    expect(() => ruleSet(['SRC-IP,10.0.0.0/8,no-resolve']).match({})).toThrow('SRC-IP has the option no-resolve, and takes none');
+  });
+
+  it('refuses extended-matching, which is valid in Surge and is not modeled, and says so', () => {
+    expect(() => ruleSet(['DOMAIN,cdn.example.org,extended-matching']).match({}))
+      .toThrow('DOMAIN has the option extended-matching, and takes none: it is valid in Surge, and the simulation does not model it');
+  });
+
+  it('refuses an empty option, which is a comma at the end of a rule', () => {
+    expect(() => ruleSet(['DOMAIN,audit.invalid,']).match({})).toThrow('DOMAIN has an empty option, and takes none: that is a comma at the end of the rule');
+    expect(() => ruleSet(['IP-CIDR,192.0.2.0/24,no-resolve,']).match({})).toThrow('IP-CIDR has an empty option');
+  });
+
+  it('holds the rules inside a logical rule to it, to any depth', () => {
+    expect(() => ruleSet(['DOMAIN,a.example.com', 'AND,((DOMAIN,audit.invalid,pre-matching),(PROCESS-NAME,tool))']).match({}))
+      .toThrow('test.conf:2: DOMAIN has the option pre-matching, and takes none: a ruleset file cannot have it');
+    expect(() => ruleSet(['OR,((DOMAIN,b.example.com),(AND,((DOMAIN-SUFFIX,audit.invalid,garbage),(PROCESS-NAME,tool))))']).match({}))
+      .toThrow('DOMAIN-SUFFIX has the option garbage');
+    expect(() => ruleSet(['NOT,((PROCESS-NAME,tool,no-resolve))']).match({})).toThrow('PROCESS-NAME has the option no-resolve');
+    expect(() => ruleSet(['AND,((DOMAIN,a.example.com),(IP-CIDR,192.0.2.0/24,no-resolve,pre-matching))']).match({})).toThrow('IP-CIDR has the option pre-matching');
+
+    const valid = ['AND,((DOMAIN,a.example.com),(IP-CIDR,192.0.2.0/24,no-resolve))'];
+    expect(matches(valid, { hostname: 'a.example.com', destIp: '192.0.2.5' })).toEqual(valid[0]);
+  });
+
+  it('refuses what follows the sub-rules of a logical rule, which nothing reads', () => {
+    expect(() => ruleSet(['AND,((DOMAIN,a.example.com),(PROCESS-NAME,tool)),pre-matching']).match({}))
+      .toThrow('a logical rule has nothing after its sub-rules, and this has ,pre-matching');
+    expect(() => ruleSet(['AND,((DOMAIN,a.example.com),(OR,((DOMAIN,b.example.com),(DOMAIN,c.example.com)),garbage))']).match({}))
+      .toThrow('a logical rule has nothing after its sub-rules, and this has ,garbage');
+  });
+
+  it('does not look at the options of a type that it does not know, nor at the commas of a URL-REGEX', () => {
+    const rules = ruleSet([String.raw`URL-REGEX,^http://\d{1,3}\.\d{1,3}/(adgateway|adv)/`, 'FOO,bar,baz']);
+    expect(rules.unsupported).toEqual(new Map([['URL-REGEX', 1], ['FOO', 1]]));
+    expect(ruleSet(['AND,((DOMAIN,a.example.com),(URL-REGEX,^http://a/x{1,3}))']).unsupported).toEqual(new Map([['URL-REGEX', 1]]));
+  });
+});
+
+describe('optionProblem', () => {
+  it('has nothing to say about the options that the simulation models, and about a type that it does not look at', () => {
+    expect(optionProblem('IP-CIDR', [])).toEqual(null);
+    expect(optionProblem('IP-CIDR', ['no-resolve'])).toEqual(null);
+    expect(optionProblem('IP-CIDR6', ['no-resolve', 'no-resolve'])).toEqual(null);
+    expect(optionProblem('DOMAIN', [])).toEqual(null);
+    expect(optionProblem('URL-REGEX', ['anything'])).toEqual(null);
+    expect(optionProblem('FOO', ['anything'])).toEqual(null);
+  });
+
+  it('names the type, the option, what the type takes, and why', () => {
+    expect(optionProblem('DOMAIN', ['pre-matching'])).toEqual('DOMAIN has the option pre-matching, and takes none: a ruleset file cannot have it');
+    expect(optionProblem('IP-ASN', ['no-resolve', 'garbage'])).toEqual('IP-ASN has the option garbage, and takes no-resolve only: it is not an option that a rule of this type has');
+    expect(optionProblem('DOMAIN-SUFFIX', ['extended-matching'])).toEqual('DOMAIN-SUFFIX has the option extended-matching, and takes none: it is valid in Surge, and the simulation does not model it');
+  });
+});
+
+describe('leavesOf', () => {
+  it('gives a rule that is not a logical one as it is, with its options', () => {
+    expect(leavesOf('DOMAIN-SUFFIX,example.com')).toEqual([{ type: 'DOMAIN-SUFFIX', value: 'example.com', options: [] }]);
+    expect(leavesOf('IP-CIDR,192.0.2.0/24,no-resolve')).toEqual([{ type: 'IP-CIDR', value: '192.0.2.0/24', options: ['no-resolve'] }]);
+  });
+
+  it('gives the rules inside a logical rule, to any depth, in the order that they are written', () => {
+    expect(leavesOf('AND,((DOMAIN,a.example.com),(OR,((PROCESS-NAME,tool),(NOT,((IP-CIDR,192.0.2.0/24,no-resolve))))))')).toEqual([
+      { type: 'DOMAIN', value: 'a.example.com', options: [] },
+      { type: 'PROCESS-NAME', value: 'tool', options: [] },
+      { type: 'IP-CIDR', value: '192.0.2.0/24', options: ['no-resolve'] }
+    ]);
+  });
+
+  it('gives the options as they are written, and leaves the check of them to the caller', () => {
+    expect(leavesOf('DOMAIN,a.example.com,pre-matching')).toEqual([{ type: 'DOMAIN', value: 'a.example.com', options: ['pre-matching'] }]);
+    expect(leavesOf('DOMAIN,a.example.com,')).toEqual([{ type: 'DOMAIN', value: 'a.example.com', options: [''] }]);
+  });
+
+  it('gives a URL-REGEX with its whole regular expression, commas included, and no options', () => {
+    expect(leavesOf(String.raw`URL-REGEX,^http://\d{1,3}\.\d{1,3}/a`)).toEqual([{ type: 'URL-REGEX', value: String.raw`^http://\d{1,3}\.\d{1,3}/a`, options: [] }]);
+  });
+
+  it('gives the rules that it would not evaluate, and names what it cannot read', () => {
+    expect(leavesOf('AND,((FOO,bar),(DOMAIN,a.example.com))').map(leaf => leaf.type)).toEqual(['FOO', 'DOMAIN']);
+    expect(() => leavesOf('DOMAIN')).toThrow('not a rule');
+    expect(() => leavesOf('DOMAIN,')).toThrow('no value');
+    expect(() => leavesOf('AND,DOMAIN,a.example.com')).toThrow('a logical rule needs its sub-rules in parentheses');
+    expect(() => leavesOf('AND,((DOMAIN,a.example.com),(DOMAIN))')).toThrow('not a rule');
   });
 });
 
@@ -230,6 +389,13 @@ describe('RuleSet: lines that are not rules', () => {
 
   it('skips comments and empty lines, and counts the lines from 1', () => {
     expect(ruleSet(['#########', '# header', '', '   ', 'DOMAIN,a.example.com']).match({ hostname: 'a.example.com' })).toEqual({ line: 5, rule: 'DOMAIN,a.example.com' });
+  });
+
+  it('counts the rules of the file, and not its comments and blank lines, in a ruleset, in a DOMAIN-SET, and when it cannot evaluate them', () => {
+    expect(ruleSet([]).size).toEqual(0);
+    expect(ruleSet(['#########', '# Size: 0', '#########', '################## EOF ##################']).size).toEqual(0);
+    expect(ruleSet(['# header', 'DOMAIN,a.example.com', '', 'DOMAIN-SUFFIX,b.example.com', '# a comment', 'IP-ASN,44907']).size).toEqual(3);
+    expect(new RuleSet('set.conf', ['# header', 'a.example.com', '.b.example.com', ''].join('\n'), { domainSet: true }).size).toEqual(2);
   });
 });
 
