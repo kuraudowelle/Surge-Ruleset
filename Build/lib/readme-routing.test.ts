@@ -21,7 +21,9 @@ interface Probe {
   /** The ruleset that matches first */
   first: string,
   /** Rulesets that match this request as well, and stand behind the first: without them the probe would prove nothing */
-  also?: string[]
+  also?: string[],
+  /** Rulesets that do not have this request at all, in whatever order: a service that is not theirs, and must not be taken by them */
+  not?: string[]
 }
 
 function label(request: Request) {
@@ -101,6 +103,9 @@ describe('the Rule section of the README', () => {
         // the rulesets behind the first that the request is in as well: without them, the probe proves nothing
         const missing = (probe.also ?? []).filter(name => !matched.slice(1).includes(name));
         expect({ request: label(probe.request), notBehind: missing }).toEqual({ request: label(probe.request), notBehind: [] });
+        // and the rulesets that must not have it: the first one has to be right, and so does the whole of the list
+        const intruders = (probe.not ?? []).filter(name => matched.includes(name));
+        expect({ request: label(probe.request), notInThem: intruders }).toEqual({ request: label(probe.request), notInThem: [] });
       });
     }
   }
@@ -282,9 +287,12 @@ describe('the Rule section of the README', () => {
 
   describe('Streaming: the regions in front of the list of all services', () => {
     probes([
-      { request: { hostname: 'hulu.jp' }, first: 'non_ip/stream_jp.conf', also: ['non_ip/stream.conf'] },
-      { request: { hostname: 'happyon.jp' }, first: 'non_ip/stream_jp.conf', also: ['non_ip/stream.conf'] },
-      { request: { hostname: 'www.hulu.com' }, first: 'non_ip/stream_us.conf', also: ['non_ip/stream.conf'] },
+      // Hulu Japan is a service of Japan, and no ruleset of North America has it, in front of Japan or behind it
+      { request: { hostname: 'hulu.jp' }, first: 'non_ip/stream_jp.conf', also: ['non_ip/stream.conf'], not: ['non_ip/stream_us.conf'] },
+      { request: { hostname: 'happyon.jp' }, first: 'non_ip/stream_jp.conf', also: ['non_ip/stream.conf'], not: ['non_ip/stream_us.conf'] },
+      { request: { hostname: 'hjholdings.jp' }, first: 'non_ip/stream_jp.conf', also: ['non_ip/stream.conf'], not: ['non_ip/stream_us.conf'] },
+      // and Hulu is one of the US, and Japan does not have it
+      { request: { hostname: 'www.hulu.com' }, first: 'non_ip/stream_us.conf', also: ['non_ip/stream.conf'], not: ['non_ip/stream_jp.conf'] },
       // HBO GO Asia is in Hong Kong and in Taiwan, and Hong Kong is first
       { request: { hostname: 'www.hbogoasia.com' }, first: 'non_ip/stream_hk.conf', also: ['non_ip/stream_tw.conf', 'non_ip/stream.conf'] },
       { request: { hostname: 'video.friday.tw' }, first: 'non_ip/stream_tw.conf', also: ['non_ip/stream.conf'] },
