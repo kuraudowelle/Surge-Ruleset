@@ -1,11 +1,11 @@
 {
-  "name": "ruleset.skk.moe",
+  "name": "surge-ruleset",
   "version": "0.0.0",
   "private": true,
   "description": "",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SukkaW/Surge.git"
+    "url": "git+https://github.com/kuraudowelle/Surge-Ruleset.git"
   },
   "type": "commonjs",
   "scripts": {

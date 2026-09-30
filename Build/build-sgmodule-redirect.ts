@@ -184,7 +184,7 @@ export const buildRedirectModule = task(require.main === module, __filename)(asy
     compareAndWriteFile(
       span,
       [
-        '#!name=[Sukka] URL Redirect',
+        '#!name=[Surge Ruleset] URL Redirect',
         `#!desc=Last Updated: ${new Date().toISOString()} Size: ${fullDomains.size}`,
         '',
         '[MITM]',
@@ -200,10 +200,10 @@ export const buildRedirectModule = task(require.main === module, __filename)(asy
     compareAndWriteFile(
       span,
       [
-        '#!name=[Sukka] URL Redirect (Minimum)',
+        '#!name=[Surge Ruleset] URL Redirect (Minimum)',
         `#!desc=Last Updated: ${new Date().toISOString()} Size: ${minimumDomains.size}`,
         '# This module only contains rules that doesn\'t work with/hasn\'t migrated to AdGuard/uBlock Origin\'s "uritransform" filter syntax',
-        '# uBO/AdGuard filter can be found at https://ruleset.skk.moe/Internal/sukka_ubo_url_redirect_filters.txt',
+        '# uBO/AdGuard filter can be found at https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Internal/sukka_ubo_url_redirect_filters.txt',
         '# This reduces mitm-hostnames and improves performance, with the tradeoff of uBO/AdGuard filter only cover mostly in browser.',
         '',
         '[MITM]',
@@ -228,13 +228,12 @@ export const buildRedirectModule = task(require.main === module, __filename)(asy
     compareAndWriteFile(
       span,
       [
-        '! Title: [sukka] Sukka URL Redirect (SukkaW/Surge @ GitHub)',
+        '! Title: [Surge Ruleset] URL Redirect',
         `! Last modified: ${new Date().toUTCString()}`,
         '! Expires: 4 hours',
         '! Description: Redirect requests via uritransform network filter syntax.',
-        '! License: https://ruleset.skk.moe/LICENSE',
-        '! Homepage: https://ruleset.skk.moe',
-        '! GitHub: https://github.com/SukkaW/Surge',
+        '! License: https://github.com/kuraudowelle/Surge-Ruleset/blob/master/LICENSE',
+        '! Homepage: https://github.com/kuraudowelle/Surge-Ruleset',
         '',
         ...REDIRECT_MIRROR_HEADER.reduce<string[]>(uBOUriTransformGenerator, []),
         ...REDIRECT_MIRROR_307.reduce<string[]>(uBOUriTransformGenerator, []),

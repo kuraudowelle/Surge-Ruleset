@@ -74,14 +74,14 @@ export const buildTeams = task(require.main === module, __filename)(async (span)
 
   return Promise.all([
     new RulesetOutput(span, 'teams', 'non_ip')
-      .withTitle('Ruleset - Microsoft Teams')
+      .withTitle('Surge Ruleset - Microsoft Teams')
       .appendDescription(SHARED_DESCRIPTION, ...dataFrom, '', 'This file contains domains used by Microsoft Teams.')
       .appendDataSource(ENDPOINTS_URL)
       .bulkAddDomain(Array.from(domains))
       .bulkAddDomainSuffix(Array.from(suffixes))
       .write(),
     new RulesetOutput(span, 'teams', 'ip')
-      .withTitle('Ruleset - Microsoft Teams IP CIDR')
+      .withTitle('Surge Ruleset - Microsoft Teams IP CIDR')
       .appendDescription(SHARED_DESCRIPTION, ...dataFrom, '', 'This file contains IP ranges used by Microsoft Teams (media, calling and meetings).')
       .appendDataSource(ENDPOINTS_URL)
       .bulkAddCIDR4NoResolve(Array.from(cidr4))

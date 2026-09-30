@@ -17,7 +17,7 @@ export const buildCloudMounterRules = task(require.main === module, __filename)(
   ]));
 
   return new RulesetOutput(span, 'cloudmounter', 'non_ip')
-    .withTitle('Sukka\'s Ruleset - CloudMounter / RaiDrive')
+    .withTitle('Surge Ruleset - CloudMounter / RaiDrive')
     .withDescription(SHARED_DESCRIPTION)
     .addFromRuleset(results)
     .write();

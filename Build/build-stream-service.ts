@@ -14,7 +14,7 @@ function createRulesetForStreamService(
   return [
     // Domains
     new RulesetOutput(span, fileId, 'non_ip')
-      .withTitle(`Sukka's Ruleset - Stream Services: ${title}`)
+      .withTitle(`Surge Ruleset - Stream Services: ${title}`)
       .appendDescription(SHARED_DESCRIPTION)
       .appendDescription('')
       .appendDescription(streamServices.map((i) => `- ${i.name}`))
@@ -22,7 +22,7 @@ function createRulesetForStreamService(
       .write(),
     // IP
     new RulesetOutput(span, fileId, 'ip')
-      .withTitle(`Sukka's Ruleset - Stream Services IPs: ${title}`)
+      .withTitle(`Surge Ruleset - Stream Services IPs: ${title}`)
       .appendDescription(SHARED_DESCRIPTION)
       .appendDescription('')
       .appendDescription(streamServices.map((i) => `- ${i.name}`))

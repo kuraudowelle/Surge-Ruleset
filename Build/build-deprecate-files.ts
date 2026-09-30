@@ -42,7 +42,7 @@ export const buildDeprecateFiles = task(require.main === module, __filename)((sp
     const [filePath, description] = DEPRECATED_FILES[i];
     const content = [
       '#########################################',
-      '# Sukka\'s Ruleset - Deprecated',
+      '# Surge Ruleset - Deprecated',
       `# ${description}`,
       '################## EOF ##################'
     ];

@@ -1,4 +1,4 @@
-#!name=[Sukka] Disable NetEase Music Mac v2 Update Check
+#!name=[Surge Ruleset] Disable NetEase Music Mac v2 Update Check
 #!desc=Disable the update prompt for NetEase Cloud Music v2 on Mac
 
 [Rule]
@@ -9,11 +9,11 @@ URL-REGEX,https?://music\.163\.com/api/feedback/client/log,REJECT
 
 [Map Local]
 # Defuse Update Check
-^https?://music\.163\.com/eapi/mac/upgrade/get data-type=text data='{"code":404,"message":"defused by sukkaw/surge","data":null}' status-code=200 header="Content-Type:application/json;charset=utf-8"
-^https?://music\.163\.com/eapi/osx/version data-type=text data='{"code":404,"message":"defused by sukkaw/surge","data":null}' status-code=200 header="Content-Type:application/json;charset=utf-8"
+^https?://music\.163\.com/eapi/mac/upgrade/get data-type=text data='{"code":404,"message":"blocked by Surge Ruleset","data":null}' status-code=200 header="Content-Type:application/json;charset=utf-8"
+^https?://music\.163\.com/eapi/osx/version data-type=text data='{"code":404,"message":"blocked by Surge Ruleset","data":null}' status-code=200 header="Content-Type:application/json;charset=utf-8"
 
 # Defuse Hot Patch
-^https?://music\.163\.com/api/pccache/patch/get data-type=text data='{"code":404,"message":"defused by sukkaw/surge","data":null}' status-code=200 header="Content-Type:application/json;charset=utf-8"
+^https?://music\.163\.com/api/pccache/patch/get data-type=text data='{"code":404,"message":"blocked by Surge Ruleset","data":null}' status-code=200 header="Content-Type:application/json;charset=utf-8"
 
 [MITM]
 hostname = %APPEND% music.163.com

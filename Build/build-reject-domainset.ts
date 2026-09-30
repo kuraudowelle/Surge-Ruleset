@@ -32,7 +32,7 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
   // and ended by whoever booted it (index.ts, or process exit in standalone runs).
   const rejectWorker = getBuildWorkerFarm();
   const rejectDomainsetOutput = new DomainsetOutput(span, 'reject')
-    .withTitle('Sukka\'s Ruleset - Reject Base')
+    .withTitle('Surge Ruleset - Reject Base')
     .appendDescription(
       SHARED_DESCRIPTION,
       '',
@@ -42,7 +42,7 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
     .appendDataSource(DOMAIN_LISTS.map(domainList => domainList[0]));
 
   const rejectExtraDomainsetOutput = new DomainsetOutput(span, 'reject_extra')
-    .withTitle('Sukka\'s Ruleset - Reject Extra')
+    .withTitle('Surge Ruleset - Reject Extra')
     .appendDescription(
       SHARED_DESCRIPTION,
       '',
@@ -52,7 +52,7 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
     .appendDataSource(DOMAIN_LISTS_EXTRA.map(domainList => domainList[0]));
 
   const rejectPhisingDomainsetOutput = new DomainsetOutput(span, 'reject_phishing')
-    .withTitle('Sukka\'s Ruleset - Reject Phishing')
+    .withTitle('Surge Ruleset - Reject Phishing')
     .appendDescription(
       SHARED_DESCRIPTION,
       '',
@@ -62,7 +62,7 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
     .appendDataSource(PHISHING_DOMAIN_LISTS_EXTRA.map(domainList => domainList[0]));
 
   const rejectNonIpRulesetOutput = new RulesetOutput(span, 'reject', 'non_ip')
-    .withTitle('Sukka\'s Ruleset - Reject Non-IP')
+    .withTitle('Surge Ruleset - Reject Non-IP')
     .appendDescription(SHARED_DESCRIPTION, '')
     .appendDescription(
       'The ruleset supports AD blocking, tracking protection, privacy protection, anti-phishing, anti-mining',
@@ -71,7 +71,7 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
     );
 
   const rejectIPOutput = new RulesetOutput(span, 'reject', 'ip')
-    .withTitle('Sukka\'s Ruleset - Anti Bogus Domain')
+    .withTitle('Surge Ruleset - Anti Bogus Domain')
     .appendDescription(
       SHARED_DESCRIPTION,
       '',
@@ -252,7 +252,7 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
   // run alongside the others instead of waiting for the reject write to finish
   // first (~0.4s serial on CI).
   const rejectOutputAdGuardHome = new AdGuardHomeOutput(span, 'reject-adguardhome', OUTPUT_INTERNAL_DIR)
-    .withTitle('Sukka\'s Ruleset - AdGuardHome Blocklist')
+    .withTitle('Surge Ruleset - AdGuardHome Blocklist')
     .withDescription([
       'The AdGuardHome ruleset supports AD blocking, tracking protection, privacy protection, anti-mining'
     ]);
@@ -282,7 +282,7 @@ export const buildRejectDomainSet = task(require.main === module, __filename)(as
   ]);
 
   const myRejectOutputAdGuardHome = new AdGuardHomeOutput(span, 'my-reject-adguardhome', OUTPUT_INTERNAL_DIR)
-    .withTitle('Sukka\'s Ruleset - AdGuardHome Blocklist for Myself (Sukka)')
+    .withTitle('Surge Ruleset - AdGuardHome Blocklist for Myself')
     .withDescription([]);
 
   await myRejectOutputAdGuardHome

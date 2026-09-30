@@ -70,7 +70,7 @@ export const buildAICIDR = task(require.main === module, __filename)(async (span
   }, SpanCategory.Network);
 
   return new RulesetOutput(span, 'ai', 'ip')
-    .withTitle('Sukka\'s Ruleset - ChatGPT Voice IP CIDR')
+    .withTitle('Surge Ruleset - ChatGPT Voice IP CIDR')
     .appendDescription(
       SHARED_DESCRIPTION,
       '',

@@ -95,7 +95,7 @@ export const buildCdnDownloadConf = task(require.main === module, __filename)(as
 
   return Promise.all([
     new DomainsetOutput(span, 'cdn')
-      .withTitle('Sukka\'s Ruleset - CDN Domains')
+      .withTitle('Surge Ruleset - CDN Domains')
       .appendDescription(SHARED_DESCRIPTION)
       .appendDescription(
         '',
@@ -106,7 +106,7 @@ export const buildCdnDownloadConf = task(require.main === module, __filename)(as
       .write(),
 
     new DomainsetOutput(span, 'download')
-      .withTitle('Sukka\'s Ruleset - Large Files Hosting Domains')
+      .withTitle('Surge Ruleset - Large Files Hosting Domains')
       .appendDescription(SHARED_DESCRIPTION)
       .appendDescription(
         '',
