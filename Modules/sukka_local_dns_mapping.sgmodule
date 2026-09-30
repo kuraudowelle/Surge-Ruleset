@@ -1,5 +1,5 @@
-#!name=[Sukka] Local DNS Mapping
-#!desc=Last Updated: 2026-09-29T07:05:49.423Z
+#!name=[Surge Ruleset] Local DNS Mapping
+#!desc=Last Updated: 2026-09-30T03:32:45.434Z
 
 [Host]
 dns.alidns.com = 223.5.5.5, 223.6.6.6, 2400:3200:baba::1, 2400:3200::1
