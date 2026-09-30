@@ -159,10 +159,10 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 ##### Surge as an MTProto proxy server
 
-Surge can act as an [MTProto proxy server](https://manual.nssurge.com/features/mtproto.html) for Telegram. The Telegram client connects to a port on Surge and only says which Telegram data center (DC) it needs; Surge picks a current endpoint of that DC from its DC mapping and evaluates the connection with the normal rules. The target of such a connection is normally a Telegram IP address, not a hostname, so domain rules do not match it. According to the manual, `PROTOCOL,MTProto` matches all of this traffic, and IP rules, ASN rules and a Telegram ruleset that contains the mapped addresses are the most reliable choices. The rulesets above are built for that:
+Surge (iOS 5.21.0+, Mac 6.8.0+) can act as an [MTProto proxy server](https://manual.nssurge.com/features/mtproto.html) for Telegram. The Telegram client connects to a port on Surge and only says which Telegram data center (DC) it needs; Surge picks a current endpoint of that DC from its DC mapping and evaluates the connection with the normal rules. The target of such a connection is normally a Telegram IP address, not a hostname, so domain rules normally cannot match it. According to the manual, `PROTOCOL,MTProto` matches all of this traffic, and IP rules, ASN rules and a Telegram ruleset that contains the mapped addresses are the most reliable choices. The rulesets above are built for that:
 
-- `List/non_ip/telegram.conf` contains `PROTOCOL,MTProto`
-- `List/ip/telegram.conf` always contains every address of the DC mapping published in [`Internal/mtproto-dc-config.json`](Internal/mtproto-dc-config.json): the addresses that Telegram's published ranges leave out are added on every build
+- `List/non_ip/telegram.conf` contains `PROTOCOL,MTProto`. The manual says a rule set skips the lines it cannot parse instead of failing as a whole, so a Surge older than the version above should only lose this line
+- `List/ip/telegram.conf` always contains every address of the DC mapping published in [`Internal/mtproto-dc-config.json`](Internal/mtproto-dc-config.json): Telegram's published ranges alone do not cover all of them, so the missing ones are added on every build
 
 The rulesets only route the traffic; the listener itself is set up in your profile. A minimal `[MTProto]` section, following the manual's quick start (see the manual for every option):
 
@@ -170,14 +170,16 @@ The rulesets only route the traffic; the listener itself is set up in your profi
 [MTProto]
 interface = 127.0.0.1
 port = 5753
-# Generate one with: openssl rand -hex 16
+# 32 hexadecimal characters, generate them with: openssl rand -hex 16
 secret = [Replace with your secret]
 ipv6 = true
-# Optional: take the DC mapping from this repository instead of the source Surge uses by default
-dc-config-url = https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Internal/mtproto-dc-config.json
 ```
 
-> Surge downloads the DC mapping only when its stored copy is missing or older than 30 days, and keeps serving the one it has if a download fails.
+> `ipv6 = true` makes Surge use only the IPv6 endpoints of Telegram's data centers (the default is IPv4 only). The manual notes that Telegram's IPv4 servers can hang while its IPv6 ones do not, but the device and every outbound proxy on the path must then be able to carry IPv6.
+
+> Surge ships a snapshot of the DC mapping and refreshes it from a default URL that the manual lists, when its stored copy is missing or older than 30 days. It keeps serving the copy it has if a download fails, and the download follows your normal rules, so the host of the URL must be reachable through the policy that matches it.
+>
+> `dc-config-url` replaces that URL. [`Internal/mtproto-dc-config.json`](Internal/mtproto-dc-config.json) has the format the manual asks for, but it is not the plain `help.getConfig` result that the manual says a custom mapping should publish: it also holds endpoints from Telegram's signed backup configuration and its built-in DC addresses, and it is sorted by DC and address, while Surge takes the first suitable endpoint in file order. Point `dc-config-url` at it only if you want exactly that file.
 
 #### Apple CDN
 

@@ -1,7 +1,9 @@
 /**
- * Surge documents the protocol values of `PROTOCOL` rules in upper case (HTTP,
- * QUIC, STUN, ...), except for the one added with its MTProto proxy server, which
- * the manual spells `PROTOCOL,MTProto` (https://manual.nssurge.com/features/mtproto.html).
+ * Surge compares the value of a `PROTOCOL` rule case-sensitively and documents every
+ * keyword in upper case (HTTP, HTTPS, TCP, UDP, QUIC, STUN, DOH, ...) except the one
+ * added with its MTProto proxy server, `MTProto`
+ * (https://manual.nssurge.com/rules/protocol-and-network.html). Upper-casing that one
+ * would write a value Surge does not know.
  */
 const SPELLINGS = new Map([
   ['MTPROTO', 'MTProto']

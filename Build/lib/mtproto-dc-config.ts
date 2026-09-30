@@ -232,11 +232,12 @@ export function mergeFallbackEndpoints(
 
 /**
  * Surge's MTProto server hands the rule engine the IP address it picked from the
- * DC mapping, never a hostname, so a Telegram ruleset has to contain every address
+ * DC mapping, not a hostname, so a Telegram ruleset has to contain every address
  * of the mapping (https://manual.nssurge.com/features/mtproto.html). The ranges
- * Telegram publishes do not promise that on their own: some endpoints of the
- * mapping lie outside them. This returns the /32 and /128 entries for the mapped
- * addresses that the given ranges leave out.
+ * Telegram publishes do not promise that on their own: on 2026-09-30 three of the
+ * 22 mapped endpoints (95.161.76.100, 95.161.76.101 and 194.221.250.50) lay outside
+ * https://core.telegram.org/resources/cidr.txt. This returns the /32 and /128
+ * entries for the mapped addresses that the given ranges leave out.
  */
 export function getUncoveredEndpointCidrs(
   config: Pick<MTProtoDCConfig, 'options'>,
