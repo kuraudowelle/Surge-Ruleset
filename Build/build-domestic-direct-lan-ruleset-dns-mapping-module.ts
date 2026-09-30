@@ -3,55 +3,20 @@ import path from 'node:path';
 import { DOMESTICS, DOH_BOOTSTRAP, AdGuardHomeDNSMapping } from '../Source/non_ip/domestic';
 import { DIRECTS, HOSTS, LAN } from '../Source/non_ip/direct';
 import type { DNSMapping } from '../Source/non_ip/direct';
-import { fetchRemoteTextLines, readFileIntoProcessedArray } from './lib/fetch-text-by-line';
+import { fetchRemoteTextLines } from './lib/fetch-text-by-line';
 import { compareAndWriteFile } from './lib/create-file';
 import { SpanCategory, task } from './trace';
 import type { Span } from './trace';
 import { SHARED_DESCRIPTION } from './constants/description';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { resolveCommunityLists } from './lib/community-lists';
+import { createGetDnsMappingRule } from './lib/dns-mapping-rule';
+import { describeHandCollected, readHandCollected } from './lib/hand-collected';
+import type { HandCollected } from './lib/hand-collected';
 import { reportRulesetFailure } from './lib/report-failure';
-import { OUTPUT_INTERNAL_DIR, OUTPUT_MODULES_DIR, OUTPUT_MODULES_RULES_DIR, SOURCE_DIR } from './constants/dir';
+import { OUTPUT_INTERNAL_DIR, OUTPUT_MODULES_DIR, OUTPUT_MODULES_RULES_DIR } from './constants/dir';
 import { RulesetOutput, SurgeOnlyRulesetOutput } from './lib/rules/ruleset';
 import { $$fetch } from './lib/fetch-retry';
-
-export function createGetDnsMappingRule(allowWildcard: boolean) {
-  const hasWildcard = (domain: string) => {
-    if (domain.includes('*') || domain.includes('?')) {
-      if (!allowWildcard) {
-        throw new TypeError(`Wildcard domain is not supported: ${domain}`);
-      }
-      return true;
-    }
-
-    return false;
-  };
-
-  return (domain: string): string[] => {
-    const results: string[] = [];
-    if (domain[0] === '$') {
-      const d = domain.slice(1);
-      if (hasWildcard(domain)) {
-        results.push(`DOMAIN-WILDCARD,${d}`);
-      } else {
-        results.push(`DOMAIN,${d}`);
-      }
-    } else if (domain[0] === '+') {
-      const d = domain.slice(1);
-      if (hasWildcard(domain)) {
-        results.push(`DOMAIN-WILDCARD,*.${d}`);
-      } else {
-        results.push(`DOMAIN-SUFFIX,${d}`);
-      }
-    } else if (hasWildcard(domain)) {
-      results.push(`DOMAIN-WILDCARD,${domain}`, `DOMAIN-WILDCARD,*.${domain}`);
-    } else {
-      results.push(`DOMAIN-SUFFIX,${domain}`);
-    }
-
-    return results;
-  };
-}
 
 /**
  * What the community keeps for the domains of mainland China: the list that the tools of the community go direct
@@ -70,10 +35,12 @@ interface DomainsRuleset {
   /** The lines of a ruleset */
   lines: string[],
   /** Where the lists that make it are downloaded from */
-  sources: string[]
+  sources: string[],
+  /** What a person collected for it: in the lines already, and the file says where it is */
+  handCollected: HandCollected
 }
 
-async function getCommunityDomains(span: Span, selections: string[]): Promise<DomainsRuleset> {
+async function getCommunityDomains(span: Span, selections: string[], handCollected: HandCollected): Promise<DomainsRuleset> {
   const { suffixes, hostnames, unsupported, sources } = await resolveCommunityLists(span, selections);
 
   if (unsupported.length > 0) {
@@ -87,50 +54,47 @@ async function getCommunityDomains(span: Span, selections: string[]): Promise<Do
   for (let i = 0, len = hostnames.length; i < len; i++) {
     lines.push('DOMAIN,' + hostnames[i]);
   }
+  appendArrayInPlace(lines, handCollected.lines);
 
-  return { lines, sources };
+  return { lines, sources, handCollected };
 }
 
 /**
- * The domains of mainland China: the list of the community, and the domains that the Local DNS Mapping module
- * gives a DNS of the service to (they have to go direct as well, and the list of the community has most of them).
+ * The domains of mainland China: the list of the community, the domains that the Local DNS Mapping module
+ * gives a DNS of the service to (they have to go direct as well, and the list of the community has most of them),
+ * and what a person collected (Source/non_ip/domestic.conf).
  */
-async function getDomestics(span: Span): Promise<DomainsRuleset> {
-  const { lines, sources } = await getCommunityDomains(span, DOMESTIC_SELECTIONS);
+async function getDomestics(span: Span, handCollected: HandCollected): Promise<DomainsRuleset> {
+  const ruleset = await getCommunityDomains(span, DOMESTIC_SELECTIONS, handCollected);
   const getDnsMappingRuleWithWildcard = createGetDnsMappingRule(true);
 
   [DOH_BOOTSTRAP, DOMESTICS].forEach((item) => {
     Object.values(item).forEach(({ domains }) => {
-      appendArrayInPlace(lines, domains.flatMap(getDnsMappingRuleWithWildcard));
+      appendArrayInPlace(ruleset.lines, domains.flatMap(getDnsMappingRuleWithWildcard));
     });
   });
 
-  return { lines, sources };
+  return ruleset;
 }
 
 /**
  * What should not be proxied: the lists of the community, the captive portals and the pages of the routers that
- * the Local DNS Mapping module knows, and the processes that no list of domains can carry (proxy tools, downloaders),
- * which are written by hand.
+ * the Local DNS Mapping module knows, and what a person collected (Source/non_ip/direct.conf): the domains, and the
+ * processes that no list of domains can carry (proxy tools, downloaders).
  */
-async function getDirects(span: Span): Promise<DomainsRuleset & { processes: number }> {
-  const [{ lines, sources }, processes] = await Promise.all([
-    getCommunityDomains(span, DIRECT_SELECTIONS),
-    readFileIntoProcessedArray(path.resolve(SOURCE_DIR, 'non_ip/direct.conf'))
-  ]);
+async function getDirects(span: Span, handCollected: HandCollected): Promise<DomainsRuleset> {
+  const ruleset = await getCommunityDomains(span, DIRECT_SELECTIONS, handCollected);
   const getDnsMappingRuleWithWildcard = createGetDnsMappingRule(true);
 
-  appendArrayInPlace(lines, processes);
-
   Object.values(DIRECTS).forEach(({ domains }) => {
-    appendArrayInPlace(lines, domains.flatMap(getDnsMappingRuleWithWildcard));
+    appendArrayInPlace(ruleset.lines, domains.flatMap(getDnsMappingRuleWithWildcard));
   });
 
   Object.values(LAN).forEach(({ domains }) => {
-    appendArrayInPlace(lines, domains.flatMap(getDnsMappingRuleWithWildcard));
+    appendArrayInPlace(ruleset.lines, domains.flatMap(getDnsMappingRuleWithWildcard));
   });
 
-  return { lines, sources, processes: processes.length };
+  return ruleset;
 }
 
 /** One of the rulesets that cannot get its data keeps its file of the last build, and the files made of what is here are still written */
@@ -144,9 +108,15 @@ async function settle<T>(file: string, title: string, promise: Promise<T>): Prom
 }
 
 export const buildDomesticRuleset = task(require.main === module, __filename)(async (span) => {
+  // A file of the sources that is wrong is a mistake of whoever keeps them, and not a source that is down: it fails the build
+  const [domesticHandCollected, directHandCollected] = await Promise.all([
+    readHandCollected('non_ip', 'domestic'),
+    readHandCollected('non_ip', 'direct')
+  ]);
+
   const [domestics, directs] = await Promise.all([
-    settle('non_ip/domestic', 'The ruleset of the domestic domains was not updated', getDomestics(span)),
-    settle('non_ip/direct', 'The ruleset of what goes direct was not updated', getDirects(span))
+    settle('non_ip/domestic', 'The ruleset of the domestic domains was not updated', getDomestics(span, domesticHandCollected)),
+    settle('non_ip/direct', 'The ruleset of what goes direct was not updated', getDirects(span, directHandCollected))
   ]);
 
   const dataset: Array<[name: string, mapping: DNSMapping]> = ([DOH_BOOTSTRAP, DOMESTICS, DIRECTS, LAN, HOSTS] as const).flatMap(Object.entries);
@@ -159,7 +129,8 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
         '',
         'This file contains known addresses that are available in the Mainland China.',
         '',
-        `It is made of the list that the community keeps for them (${DOMESTIC_SELECTIONS.join(', ')}: the domains of mainland China, the .cn domains, and what the lists of foreign companies mark as hosted there), and of the domains that the Local DNS Mapping module of this project gives a DNS to.`
+        `It is made of the list that the community keeps for them (${DOMESTIC_SELECTIONS.join(', ')}: the domains of mainland China, the .cn domains, and what the lists of foreign companies mark as hosted there), and of the domains that the Local DNS Mapping module of this project gives a DNS to.`,
+        ...describeHandCollected(domestics.handCollected)
       )
       .appendDataSource(domestics.sources)
       .addFromRuleset(domestics.lines)
@@ -172,7 +143,8 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
         'This file contains domains and process that should not be proxied.',
         '',
         `The domains are made of the lists that the community keeps for PT sites, for academic publishers and databases and for Xunlei (${DIRECT_SELECTIONS.join(', ')}), and of the captive portals and the pages of routers that the Local DNS Mapping module of this project knows.`,
-        `The ${directs.processes} processes and apps of the tools that must not be proxied (proxy tools, downloaders, ...) are written by hand (Source/non_ip/direct.conf), because no list of domains can carry them.`
+        'The processes and apps of the tools that must not be proxied (proxy tools, downloaders, ...) are not in any list of domains, they are collected by hand.',
+        ...describeHandCollected(directs.handCollected)
       )
       .appendDataSource(directs.sources)
       .addFromRuleset(directs.lines)

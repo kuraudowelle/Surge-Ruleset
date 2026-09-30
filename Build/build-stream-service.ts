@@ -8,6 +8,7 @@ import { SHARED_DESCRIPTION } from './constants/description';
 import { fetchAnnouncedPrefixes, RIPESTAT_ANNOUNCED_PREFIXES_URL } from './lib/announced-prefixes';
 import type { Cidrs } from './lib/cidr-lines';
 import { resolveCommunityLists } from './lib/community-lists';
+import { describeHandCollected } from './lib/hand-collected';
 import { reportRulesetFailure } from './lib/report-failure';
 import { RulesetOutput } from './lib/rules/ruleset';
 
@@ -26,31 +27,44 @@ function getPrefixes(span: Span, asns: number[]): Promise<Cidrs> {
 }
 
 async function buildRulesetsForStreamServices(span: Span, fileId: string, title: string, streamServices: StreamService[]) {
+  const lists = streamServices.flatMap(service => service.lists ?? []);
   const asns = Array.from(new Set(streamServices.flatMap(service => service.asns ?? [])));
+  // what a person collected: it is in the file whatever the lists and the owners say
+  const handRules = streamServices.flatMap(service => service.rules ?? []);
+  const handCidr4 = streamServices.flatMap(service => service.ip?.v4 ?? []);
+  const handCidr6 = streamServices.flatMap(service => service.ip?.v6 ?? []);
 
   const [community, prefixes] = await Promise.all([
-    resolveCommunityLists(span, streamServices.flatMap(service => service.lists)),
+    resolveCommunityLists(span, lists),
     asns.length === 0 ? { cidr4: [], cidr6: [] } satisfies Cidrs : getPrefixes(span, asns)
   ]);
 
   if (community.unsupported.length > 0) {
     console.log('[stream services]', `${fileId}: skipped`, community.unsupported);
   }
-  // A group with services and no domain is a download that is not what it should be, not a group without services
-  if (streamServices.length > 0 && community.suffixes.length + community.hostnames.length === 0) {
+  // Lists that have no domain are a download that is not what it should be, not a group without lists
+  if (lists.length > 0 && community.suffixes.length + community.hostnames.length === 0) {
     throw new Error(`The lists of the community have no domain for the stream services of ${title}!`);
   }
 
   console.log(
     '[stream services]',
-    `${fileId}: ${streamServices.length} services, ${community.suffixes.length} domains, ${community.hostnames.length} hostnames, ${prefixes.cidr4.length} IPv4 and ${prefixes.cidr6.length} IPv6 ranges`
+    `${fileId}: ${streamServices.length} services, ${community.suffixes.length} domains, ${community.hostnames.length} hostnames, ${prefixes.cidr4.length} IPv4 and ${prefixes.cidr6.length} IPv6 ranges, ${handRules.length} rules and ${handCidr4.length + handCidr6.length} ranges collected by hand`
   );
 
   const services = streamServices.map(service => `- ${service.name}`);
   const notes = [
     '',
-    'Every service is made of the list that the community keeps for it. A service that has no list of its own is not here, and the identifiers of apps (USER-AGENT, PROCESS-NAME), which no list carries, are not in it either.',
-    'Entries that a list marks as ads (@ads) are left out.'
+    'A service is made of the list that the community keeps for it, where there is one, and of the rules that were collected by hand (Source/stream.ts): the domains that no list has, and the identifiers of apps (USER-AGENT, PROCESS-NAME), which no list carries.',
+    'Entries that a list marks as ads (@ads) are left out.',
+    ...describeHandCollected({ file: 'Source/stream.ts', lines: handRules })
+  ];
+  const ipNotes = [
+    '',
+    asns.length === 0
+      ? 'None of the services has addresses that its owner announces.'
+      : `The addresses are what the owner of the service announces itself, from its autonomous systems (${asns.map(asn => `AS${asn}`).join(', ')}), as RIPEstat sees it. The prefixes are merged, so a range that another one covers is not listed.`,
+    ...describeHandCollected({ file: 'Source/stream.ts', lines: [...handCidr4, ...handCidr6] })
   ];
 
   return Promise.all([
@@ -64,6 +78,7 @@ async function buildRulesetsForStreamServices(span: Span, fileId: string, title:
       .appendDataSource(community.sources)
       .bulkAddDomainSuffix(community.suffixes)
       .bulkAddDomain(community.hostnames)
+      .addFromRuleset(handRules)
       .write(),
     // IP
     new RulesetOutput(span, fileId, 'ip')
@@ -71,15 +86,12 @@ async function buildRulesetsForStreamServices(span: Span, fileId: string, title:
       .appendDescription(SHARED_DESCRIPTION)
       .appendDescription('')
       .appendDescription(services)
-      .appendDescription(
-        '',
-        asns.length === 0
-          ? 'None of the services has addresses of its own.'
-          : `The addresses are what the owner of the service announces itself, from its autonomous systems (${asns.map(asn => `AS${asn}`).join(', ')}), as RIPEstat sees it. The prefixes are merged, so a range that another one covers is not listed.`
-      )
+      .appendDescription(ipNotes)
       .appendDataSource(asns.length === 0 ? [] : [RIPESTAT_ANNOUNCED_PREFIXES_URL])
       .bulkAddCIDR4NoResolve(prefixes.cidr4)
       .bulkAddCIDR6NoResolve(prefixes.cidr6)
+      .bulkAddCIDR4NoResolve(handCidr4)
+      .bulkAddCIDR6NoResolve(handCidr6)
       .write()
   ]);
 }

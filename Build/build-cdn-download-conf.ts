@@ -9,6 +9,8 @@ import { $$fetch } from './lib/fetch-retry';
 import { fastUri } from 'fast-uri';
 import { resolveCommunityLists } from './lib/community-lists';
 import type { CommunitySelection } from './lib/community-lists';
+import { describeHandCollected, readHandCollected } from './lib/hand-collected';
+import type { HandCollected } from './lib/hand-collected';
 import { reportRulesetFailure } from './lib/report-failure';
 
 const PUBLIC_SUFFIX_LIST_URL = 'https://publicsuffix.org/list/public_suffix_list.dat';
@@ -99,7 +101,7 @@ function getIpfsGatewayDomains(span: Span): Promise<string[]> {
   );
 }
 
-async function buildCdn(span: Span) {
+async function buildCdn(span: Span, handCollected: HandCollected) {
   const [community, ipfsGateways] = await Promise.all([
     resolveCommunityLists(span, [CDN_SELECTION]),
     getIpfsGatewayDomains(span)
@@ -113,9 +115,11 @@ async function buildCdn(span: Span) {
       'This file contains static assets CDN domains.',
       '',
       'It is made of the list that the community keeps for the CDNs, and of the public gateways of IPFS, which the IPFS project lists.',
-      'Akamai, Cloudflare and Fastly are not in it, since the services that are hosted on them have rulesets of their own, which a rule for the whole network would take their traffic away from.'
+      'Akamai, Cloudflare and Fastly are not in it, since the services that are hosted on them have rulesets of their own, which a rule for the whole network would take their traffic away from.',
+      ...describeHandCollected(handCollected)
     )
     .appendDataSource([...community.sources, IPFS_PUBLIC_GATEWAYS_URL])
+    .addFromDomainset(handCollected.lines)
     .bulkAddDomainSuffix(community.suffixes)
     .bulkAddDomain(community.hostnames)
     .bulkAddDomainSuffix(ipfsGateways)
@@ -124,7 +128,7 @@ async function buildCdn(span: Span) {
     .write();
 }
 
-async function buildDownload(span: Span) {
+async function buildDownload(span: Span, handCollected: HandCollected[]) {
   const [community, objectStorageDomains] = await Promise.all([
     resolveCommunityLists(span, DOWNLOAD_SELECTIONS),
     getObjectStorageDomains(span)
@@ -140,12 +144,14 @@ async function buildDownload(span: Span) {
       'It is made of the object storage that the providers register in the Public Suffix List (S3, Scaleway, Sakura), and of the lists that the community keeps for the downloads of game platforms, for the updates of Apple devices and for the registries of containers.',
       'The CDNs that the lists have inside mainland China (@cn) are left out, they are in the domestic ruleset.',
       // the files of S3 may be large
-      'The object storage is here and not with the CDNs, since what it holds may be large.'
+      'The object storage is here and not with the CDNs, since what it holds may be large.',
+      ...handCollected.flatMap(describeHandCollected)
     )
     .appendDataSource([...community.sources, PUBLIC_SUFFIX_LIST_URL])
     .bulkAddDomainSuffix(community.suffixes)
     .bulkAddDomain(community.hostnames)
     .addFromDomainset(objectStorageDomains)
+    .addFromDomainset(handCollected.flatMap(({ lines }) => lines))
     .write();
 }
 
@@ -154,12 +160,20 @@ async function buildDownload(span: Span) {
  * hold back the other, nor the rest of the build: it keeps the file of the last build that could write it.
  */
 export const buildCdnDownloadConf = task(require.main === module, __filename)(async (span) => {
+  // A file of the sources that is wrong is a mistake of whoever keeps them, and not a source that is down: it fails the build
+  const [cdnHandCollected, downloadHandCollected, gameDownloadHandCollected] = await Promise.all([
+    readHandCollected('domainset', 'cdn'),
+    readHandCollected('domainset', 'download'),
+    // a ruleset of its own as well, see Source/domainset/game-download.conf
+    readHandCollected('domainset', 'game-download', { publishedOnItsOwn: true })
+  ]);
+
   const builds = [
-    { file: 'domainset/cdn', title: 'The ruleset of the CDNs was not updated', build: buildCdn },
-    { file: 'domainset/download', title: 'The ruleset of the large file hosting was not updated', build: buildDownload }
+    { file: 'domainset/cdn', title: 'The ruleset of the CDNs was not updated', build: () => buildCdn(span, cdnHandCollected) },
+    { file: 'domainset/download', title: 'The ruleset of the large file hosting was not updated', build: () => buildDownload(span, [downloadHandCollected, gameDownloadHandCollected]) }
   ];
 
-  const results = await Promise.allSettled(builds.map(({ build }) => build(span)));
+  const results = await Promise.allSettled(builds.map(({ build }) => build()));
 
   const errors: unknown[] = [];
   for (let i = 0, len = results.length; i < len; i++) {

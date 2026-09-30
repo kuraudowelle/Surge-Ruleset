@@ -10,6 +10,7 @@ import { DomainsetOutput } from './lib/rules/domainset';
 import { OUTPUT_SURGE_DIR } from './constants/dir';
 import { DOMAIN_LIST_COMMUNITY_DATA_URL, resolveCommunityLists } from './lib/community-lists';
 import type { CommunityRules } from './lib/community-lists';
+import { describeHandCollected, readHandCollected } from './lib/hand-collected';
 import {
   APPLE_NETWORK_QUALITY_CONFIG,
   fetchAppleNetworkQualityHostnames,
@@ -42,6 +43,8 @@ async function getCommunitySpeedtest(span: Span): Promise<CommunityRules | null>
 }
 
 export const buildSpeedtestDomainSet = task(require.main === module, __filename)(async (span) => {
+  // A file of the sources that is wrong is a mistake of whoever keeps them, and not a source that is down: it fails the build
+  const handCollected = await readHandCollected('domainset', 'speedtest');
   const community = await getCommunitySpeedtest(span);
 
   return new DomainsetOutput(span, 'speedtest')
@@ -53,7 +56,8 @@ export const buildSpeedtestDomainSet = task(require.main === module, __filename)
       '',
       'The servers of speedtest.net and of LibreSpeed are what they publish in their lists of servers, and the endpoints of the networkQuality command of macOS are what Apple\'s configuration for it names.',
       `The sites and servers of the other tools that test speed are in the list that the community keeps (${SPEEDTEST_COMMUNITY_LIST}).`,
-      'The domains of the previous builds are kept, since one build only asks for some of the regions of speedtest.net.'
+      'The domains of the previous builds are kept, since one build only asks for some of the regions of speedtest.net.',
+      ...describeHandCollected(handCollected)
     )
     .appendDataSource([
       'https://www.speedtest.net/api/js/servers',
@@ -61,6 +65,7 @@ export const buildSpeedtestDomainSet = task(require.main === module, __filename)
       APPLE_NETWORK_QUALITY_CONFIG,
       DOMAIN_LIST_COMMUNITY_DATA_URL + SPEEDTEST_COMMUNITY_LIST
     ])
+    .addFromDomainset(handCollected.lines)
     // this list keeps the domains of previous builds
     .addFromDomainset(readPreviousSpeedtestHostnames(PREVIOUS_OUTPUT))
     .bulkAddDomainSuffix(community?.suffixes ?? [])

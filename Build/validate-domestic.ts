@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { OUTPUT_SURGE_DIR, SOURCE_DIR } from './constants/dir';
+import { SOURCE_DIR } from './constants/dir';
 import { parseFelixDnsmasqFromResp } from './lib/parse-dnsmasq';
 import { $$fetch } from './lib/fetch-retry';
 import runAgainstSourceFile from './lib/run-against-source-file';
@@ -28,8 +28,7 @@ export async function parseDomesticList() {
 
   // await Promise.all([
   await runAgainstSourceFile(
-    // made from the list of the community, see build-domestic-direct-lan-ruleset-dns-mapping-module.ts
-    path.resolve(OUTPUT_SURGE_DIR, 'non_ip/domestic.conf'),
+    path.resolve(SOURCE_DIR, 'non_ip/domestic.conf'),
     callback
   );
   await runAgainstSourceFile(

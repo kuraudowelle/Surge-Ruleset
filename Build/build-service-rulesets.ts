@@ -1,15 +1,18 @@
-import path from 'node:path';
 import process from 'node:process';
 import { exclude, merge } from 'fast-cidr-tools';
+import { appendArrayInPlace } from 'foxts/append-array-in-place';
 
+import { LAN } from '../Source/non_ip/direct';
 import { SHARED_DESCRIPTION } from './constants/description';
-import { SOURCE_DIR } from './constants/dir';
 import { fetchAnnouncedPrefixes, RIPESTAT_ANNOUNCED_PREFIXES_URL } from './lib/announced-prefixes';
 import { parseCidrLines } from './lib/cidr-lines';
 import { resolveCommunityLists } from './lib/community-lists';
 import type { CommunitySelection } from './lib/community-lists';
 import { $$fetch, ResponseError } from './lib/fetch-retry';
-import { fetchRemoteTextLines, readFileIntoProcessedArray } from './lib/fetch-text-by-line';
+import { createGetDnsMappingRule } from './lib/dns-mapping-rule';
+import { fetchRemoteTextLines } from './lib/fetch-text-by-line';
+import { describeHandCollected, readHandCollected } from './lib/hand-collected';
+import type { HandCollected } from './lib/hand-collected';
 import { parseGitHubMeta } from './lib/github-meta';
 import type { GitHubMetaRules } from './lib/github-meta';
 import { parseGoogleIpRanges, subtractGoogleCloudRanges } from './lib/google-ip-ranges';
@@ -47,7 +50,7 @@ interface ServiceRules {
    * there to catch a name that the rules did not know and that turns out to be one of the LAN.
    */
   noResolve?: boolean,
-  /** Rules that a list of domains or of ranges cannot carry (a process, a URL), as a ruleset has them: the lines of a file that is kept by hand */
+  /** Rules that come as a ruleset has them, and not as a list of domains or of ranges: the names of a table, for one */
   lines?: string[],
   /** Where the data is downloaded from */
   sources: string[],
@@ -109,14 +112,6 @@ function loadCommunityList(list: string, select?: (hostname: string) => boolean)
   return span => getCommunityRules(span, [{ list, select }], [
     'The service publishes no list of its domains that a build could read, so this file is made from the list that the community keeps.'
   ]);
-}
-
-/**
- * What stays written by hand, in a file next to the sources, because no list carries it: a process is not
- * a domain, nor is a URL. A file of this kind says `# $ custom_build_script`, which keeps it from being a ruleset of its own.
- */
-function readSupplement(file: string): Promise<string[]> {
-  return readFileIntoProcessedArray(path.join(SOURCE_DIR, file));
 }
 
 function requestGitHubMeta(token?: string) {
@@ -241,25 +236,10 @@ async function loadGoogleIps(span: Span) {
   });
 }
 
-/** What is written by hand next to what is generated, and the file says so: where, and why no list of domains could carry it */
-function withSupplement(rules: ServiceRules, lines: string[], file: string, what: string): ServiceRules {
-  if (lines.length === 0) {
-    return rules;
-  }
-
-  const count = lines.length === 1 ? 'One rule is' : `${lines.length} rules are`;
-  return { ...rules, lines, notes: [...rules.notes, '', `${count} written by hand (${file}), because no list of domains can carry ${what}.`] };
-}
-
-async function loadAi(span: Span) {
-  const [rules, lines] = await Promise.all([
-    getCommunityRules(span, ['category-ai-!cn'], [
-      'There are many AI services and none of them publishes a list of its domains that a build could read, so this file is made from the list that the community keeps for the AI services that are not in mainland China.'
-    ]),
-    readSupplement('non_ip/ai.conf')
+function loadAi(span: Span) {
+  return getCommunityRules(span, ['category-ai-!cn'], [
+    'There are many AI services and none of them publishes a list of its domains that a build could read, so this file is made from the list that the community keeps for the AI services that are not in mainland China.'
   ]);
-
-  return withSupplement(rules, lines, 'Source/non_ip/ai.conf', 'a URL: the page that the site of Gemini sends a client to when it does not like its IP address, which only matches with MITM on www.google.com');
 }
 
 // Both the domains and the addresses of Apple are made from the same answer
@@ -275,22 +255,21 @@ const APPLE_PREFIXES_NOTES = [
 ];
 
 async function loadAppleServices(span: Span) {
-  const [community, { cidr4, cidr6 }, lines] = await Promise.all([
+  const [community, { cidr4, cidr6 }] = await Promise.all([
     getCommunityRules(span, [{ list: 'apple', ban: ['cn'] }], [
       'Apple publishes no list of its domains that a build can read (what it documents is for admins to read), so the domains are made from the list that the community keeps.',
       'The entries that the list marks as hosted in mainland China (@cn) are not in this file, they are in apple_cn.'
     ]),
-    getApplePrefixes(span),
-    readSupplement('non_ip/apple_services.conf')
+    getApplePrefixes(span)
   ]);
 
-  return withSupplement({
+  return {
     ...community,
     cidr4,
     cidr6,
     sources: [...community.sources, RIPESTAT_ANNOUNCED_PREFIXES_URL],
     notes: [...community.notes, '', ...APPLE_PREFIXES_NOTES, 'The ranges have no-resolve: they catch what connects by IP, and they never cause a lookup.']
-  }, lines, 'Source/non_ip/apple_services.conf', 'a process: the system processes of Apple that connect without a domain that the rules could know');
+  };
 }
 
 async function loadAppleIps(span: Span) {
@@ -318,10 +297,23 @@ function loadMicrosoft(span: Span) {
   ]);
 }
 
-function loadLanDomains(span: Span) {
-  return getCommunityRules(span, ['private'], [
+async function loadLanDomains(span: Span) {
+  const community = await getCommunityRules(span, ['private'], [
     'The registries of IANA (special-use domain names, locally-served DNS zones) have the reserved names, but not the names that routers and local tools answer for. The list that the community keeps follows the registries, and adds those.'
   ]);
+
+  // the names that the Local DNS Mapping module of this project knows, which are routers and local tools as well
+  const getDnsMappingRule = createGetDnsMappingRule(true);
+  const lines: string[] = [];
+  Object.values(LAN).forEach(({ domains }) => {
+    appendArrayInPlace(lines, domains.flatMap(getDnsMappingRule));
+  });
+
+  return {
+    ...community,
+    lines,
+    notes: [...community.notes, '', 'The names that the Local DNS Mapping module of this project knows (Source/non_ip/direct.ts) are in it as well: captive portals, the pages of routers, and the like.']
+  };
 }
 
 async function loadLanIps(span: Span) {
@@ -481,7 +473,7 @@ const RULESETS: readonly ServiceRuleset[] = [
   }
 ];
 
-async function buildServiceRuleset(span: Span, ruleset: ServiceRuleset) {
+async function buildServiceRuleset(span: Span, ruleset: ServiceRuleset, handCollected: HandCollected) {
   const rules = await ruleset.load(span);
 
   const total = rules.suffixes.length + rules.hostnames.length + rules.cidr4.length + rules.cidr6.length;
@@ -496,7 +488,7 @@ async function buildServiceRuleset(span: Span, ruleset: ServiceRuleset) {
 
   const output = new RulesetOutput(span, ruleset.id, ruleset.type)
     .withTitle(`Surge Ruleset - ${ruleset.name}${ruleset.type === 'ip' ? ' IP CIDR' : ''}`)
-    .withDescription([...SHARED_DESCRIPTION, '', ...ruleset.description, ...rules.notes])
+    .withDescription([...SHARED_DESCRIPTION, '', ...ruleset.description, ...rules.notes, ...describeHandCollected(handCollected)])
     .appendDataSource(rules.sources);
 
   if (rules.date) {
@@ -516,6 +508,8 @@ async function buildServiceRuleset(span: Span, ruleset: ServiceRuleset) {
   if (rules.lines) {
     output.addFromRuleset(rules.lines);
   }
+  // what a person collected for the ruleset is merged into what is generated, and the update never touches it
+  output.addFromRuleset(handCollected.lines);
 
   return output.write();
 }
@@ -539,7 +533,10 @@ function reportFailure(ruleset: ServiceRuleset, error: unknown) {
  * it keeps the file of the last build that could write it, and says so.
  */
 export const buildServiceRulesets = task(require.main === module, __filename)(async (span) => {
-  const results = await Promise.allSettled(RULESETS.map(ruleset => buildServiceRuleset(span, ruleset)));
+  // A file of the sources that is wrong is a mistake of whoever keeps them, and not a source that is down: it fails the build
+  const handCollected = await Promise.all(RULESETS.map(ruleset => readHandCollected(ruleset.type, ruleset.id)));
+
+  const results = await Promise.allSettled(RULESETS.map((ruleset, i) => buildServiceRuleset(span, ruleset, handCollected[i])));
 
   const errors: unknown[] = [];
   for (let i = 0, len = results.length; i < len; i++) {

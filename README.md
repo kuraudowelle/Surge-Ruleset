@@ -12,7 +12,12 @@ The ruleset files are served from this repository through `https://raw.githubuse
 
 The built files (`List/`, `Modules/`, `Mock/` and `Internal/`) are rebuilt by the [Build workflow](.github/workflows/main.yml) twice a day (05:17 and 17:17 UTC) and on every push to `master`, and the workflow commits the result back to `master`. Edit the sources in `Source/` and `Build/`, not the generated files. Hand-written modules and mocks live next to the generated ones in `Modules/` and `Mock/`. To delete a published file that is no longer generated, add it to `REMOVED_FILES` in [`build-deprecate-files.ts`](Build/build-deprecate-files.ts).
 
-The rulesets of the services and of the categories below (from Speedtest to Common Services in Other Countries and Regions) are made on every build of what the owner of a service publishes where there is something that a build can read, and of the lists that the community keeps ([v2fly/domain-list-community](https://github.com/v2fly/domain-list-community), downloaded as [the one file that v2fly builds of all its lists](https://github.com/v2fly/domain-list-community/tree/release)) where there is not. Nobody keeps their domains by hand. What no list of domains can carry (a process, a URL) is written by hand in a few short files, and the sections below name them.
+The rulesets of the services and of the categories below (from Speedtest to Common Services in Other Countries and Regions) are made of two kinds of data, which are merged on every build:
+
+- **Automatic**: what the owner of a service publishes where there is something that a build can read, and the lists that the community keeps ([v2fly/domain-list-community](https://github.com/v2fly/domain-list-community), downloaded as [the one file that v2fly builds of all its lists](https://github.com/v2fly/domain-list-community/tree/release)) where there is not. It follows its sources
+- **Collected by hand**: what nobody lists: the long tail of hostnames of single sites and of mirrors, the patterns, and the rules of apps (`USER-AGENT`, `PROCESS-NAME`). Every ruleset has its file in `Source/`: `Source/non_ip/ai.conf` for `List/non_ip/ai.conf`, `Source/domainset/cdn.conf` for `List/domainset/cdn.conf`, and so on, and the streaming services are in [`Source/stream.ts`](Source/stream.ts). The sections below name them
+
+The automatic update never changes what is collected by hand, it adds to it: to keep a domain for good, add it to the file of its ruleset. A file of this kind says `# $ custom_build_script` at the start of a line, which keeps it from being published as a ruleset of its own (the build fails, and says so, if the line is missing). The header of a published ruleset says how many of its entries are collected by hand.
 
 ## Ruleset List
 
@@ -60,7 +65,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 #### Speedtest Domains
 
-- Automatically generated
+- Automatically generated, plus the domains collected by hand ([`Source/domainset/speedtest.conf`](Source/domainset/speedtest.conf)), which the update keeps
 - `speedtest.net` test points: the domains of speed test servers in dozens of common regions, fetched through the Speedtest API (a slice of the regions on each build, and the list keeps the domains of the earlier builds, so it grows)
 - The backend servers that [LibreSpeed](https://librespeed.org/backend-servers/servers.php) publishes, and the endpoints of macOS `networkQuality`, from [the configuration that Apple's tool downloads](https://mensura.cdn-apple.com/api/v1/gm/config)
 - The sites and servers of the other speed test tools (Cloudflare, M-Lab, OpenSpeedTest, nPerf, ...): [`category-speedtest`](https://github.com/v2fly/domain-list-community/blob/master/data/category-speedtest) of the community
@@ -73,24 +78,26 @@ DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/L
 
 #### Common Static CDNs
 
-- Automatically generated
+- Automatically generated, plus what is collected by hand: the hostnames of the CDNs and the asset servers of single sites that no list has ([`Source/domainset/cdn.conf`](Source/domainset/cdn.conf)), and the patterns and the few addresses ([`Source/non_ip/cdn.conf`](Source/non_ip/cdn.conf) and [`Source/ip/cdn.conf`](Source/ip/cdn.conf)), which the update keeps
 - The CDNs that the community lists ([`category-cdn-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-cdn-!cn): jsDelivr, cdnjs, esm.sh, imgix, Bunny, Gcore, CDN77, ...) and the [public gateways of IPFS](https://github.com/ipfs/public-gateway-checker), which the IPFS project lists
-- Akamai, Cloudflare and Fastly are not in it, although the community lists them as CDNs. AbemaTV, DAZN, Bilibili International, Spotify and other services that have rulesets of their own are hosted on them, and this ruleset comes before theirs: a rule for a whole network would take their traffic away from them
+- Akamai, Cloudflare and Fastly are not in the automatic part, although the community lists them as CDNs. AbemaTV, DAZN, Bilibili International, Spotify and other services that have rulesets of their own are hosted on them, and this ruleset comes before theirs: a rule for a whole network would take their traffic away from them
 - The object storage domains are in [Large File Downloads](#large-file-downloads-software-updates-operating-systems-etc)
 - If you are using a commercial public proxy service and your provider offers nodes that bill traffic consumption at a low rate multiplier, you can use the rulesets above to route traffic to those nodes
 - Includes some domains that are not in `global.conf`, so even if you have no use for the low-rate nodes offered by commercial public proxy services and do not need to split this traffic, it is still recommended to use these rules; in that case, just assign them the same policy as `global.conf`
 
 ```ini
 DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/domainset/cdn.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/cdn.conf,[Replace with your policy]
 ```
 
 #### Streaming
 
-- Automatically generated on every build: each service is made of the list that the community keeps for it ([v2fly/domain-list-community](https://github.com/v2fly/domain-list-community/tree/master/data)), and the addresses of Netflix are the ones that its owner announces itself (AS2906, which [RIPEstat](https://stat.ripe.net/docs/02.data-api/announced-prefixes.html) lists). [`Source/stream.ts`](Source/stream.ts) says which list is which service, and which region a service belongs to
-- Includes AbemaTV, Amazon Prime Video, Apple TV, Bahamut, BBC, Bilibili Intl, DAZN, Deezer, Disney+ (with Hulu, ESPN, Hotstar, ...), Discovery+, DMM, HBO, Hulu, iQiYi Global, KKBOX, KKTV, Line TV, LiTV, myTV Super, Netflix, niconico, NHK, PBS, Pluto TV, Pornhub, SHOWTIME, SoundCloud, Spotify, TIDAL, Tubi TV, TVer, Twitch, and Viu / ViuTV
-- A service is only in it if the community has a list that is about that service and nothing else. There is none for 4gtv, All4, Apple Music TV, Crackle, encoreTVB, Fox Now, Fox+, Friday, Himalaya, Hulu Japan (the list of Hulu has `hulu.jp`, and not the rest of it), HWTV, ITV, JOOX, MangaFox, My5, Naver TV, Now E, Overcast, Pandora, Paramount+, Peacock, TaiwanGood, TVB Anywhere, Vudu and WeTV, so they are not in these rulesets. The lists of a whole company (Fox, Naver, CBS, NBCUniversal, TVB) would send all of the company to the policy of a streaming service. `USER-AGENT` and `PROCESS-NAME` rules of apps are not in them either: no list carries them
-- YouTube, YouTube Music and TikTok have rulesets of their own (below), they are not in these
-- No service of South Korea is left, so `stream_kr` is empty
+- Every service is made of two kinds of data, which [`Source/stream.ts`](Source/stream.ts) keeps apart, together with the region that the service belongs to:
+  - Automatic, on every build: the list that the community keeps for the service ([v2fly/domain-list-community](https://github.com/v2fly/domain-list-community/tree/master/data)), and, for Netflix, the addresses that its owner announces itself (AS2906, which [RIPEstat](https://stat.ripe.net/docs/02.data-api/announced-prefixes.html) lists)
+  - Collected by hand, which the update keeps: the domains that no list has, the addresses, and the `USER-AGENT` and `PROCESS-NAME` rules of apps, which no list carries
+- Includes 4gtv, AbemaTV, All4, Amazon Prime Video, Apple Music TV, Apple TV, Bahamut, BBC, Bilibili Intl, Crackle, DAZN, Deezer, Discovery+, Disney+ (with Hulu, ESPN, Hotstar, ...), DMM, encoreTVB, Fox Now, Fox+, Friday, HBO Go / Now / Max / Asia, Himalaya, Hulu, Hulu Japan, HWTV, iQiYi Global, ITV, JOOX, KKBOX, KKTV, Line TV, LiTV, MangaFox, My5, myTV Super, Naver TV, Netflix, NHK, niconico, Now E, Overcast, Pandora, Paramount+, PBS, Peacock, Pluto TV, Pornhub, SHOWTIME, SoundCloud, Spotify, TaiwanGood, TIDAL, TikTok, Tubi TV, TVB Anywhere, TVer, Twitch, Viu / ViuTV, Vudu, WeTV, YouTube and YouTube Music
+- A service has an automatic part only if the community has a list that is about that service and nothing else. There is none for 4gtv, All4, Apple Music TV, Crackle, encoreTVB, Fox Now, Fox+, Friday, Himalaya, Hulu Japan (the list of Hulu has `hulu.jp`, and not the rest of it), HWTV, ITV, JOOX, MangaFox, My5, Naver TV, Now E, Overcast, Pandora, Paramount+, Peacock, TaiwanGood, TVB Anywhere, Vudu and WeTV, so they are collected by hand alone. The lists of a whole company (Fox, Naver, CBS, NBCUniversal, TVB) would send all of the company to the policy of a streaming service
+- YouTube, YouTube Music and TikTok have rulesets of their own as well (below), which are the ones that are kept up to date on their own: what is here for them is what was collected by hand
 
 ```ini
 # Non IP
@@ -130,9 +137,9 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 #### AI
 
-- Domain rules: automatically generated from the list that the community keeps for the AI services that are not in mainland China ([`category-ai-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-ai-!cn): OpenAI, Claude, Gemini, Perplexity, Grok, Copilot, Cursor, Mistral, and more), plus the one rule that no list of domains can carry, the page that the site of Gemini sends a client to when it does not like its IP address (it needs MITM on `www.google.com`, see [`Source/non_ip/ai.conf`](Source/non_ip/ai.conf))
+- Domain rules: automatically generated from the list that the community keeps for the AI services that are not in mainland China ([`category-ai-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-ai-!cn): OpenAI, Claude, Gemini, Perplexity, Grok, Copilot, Cursor, Mistral, and more), plus what is collected by hand ([`Source/non_ip/ai.conf`](Source/non_ip/ai.conf)), which the update keeps. It has the one rule that no list of domains can carry, the page that the site of Gemini sends a client to when it does not like its IP address (it needs MITM on `www.google.com`)
 - IP rules: automatically generated from the ranges of ChatGPT Voice that OpenAI [publishes itself](https://openai.com/chatgpt-voice.json)
-- `apple_intelligence.conf`: automatically generated from [`apple-intelligence`](https://github.com/v2fly/domain-list-community/blob/master/data/apple-intelligence) of the community
+- `apple_intelligence.conf`: automatically generated from [`apple-intelligence`](https://github.com/v2fly/domain-list-community/blob/master/data/apple-intelligence) of the community, plus what is collected by hand ([`Source/non_ip/apple_intelligence.conf`](Source/non_ip/apple_intelligence.conf))
 
 ```ini
 # Non IP
@@ -251,18 +258,24 @@ DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/L
 
 #### Apple Service
 
-- Automatically generated
+- Automatically generated, plus what is collected by hand, which the update keeps
 - Domains: the list that the community keeps for Apple ([`apple`](https://github.com/v2fly/domain-list-community/blob/master/data/apple), which includes iCloud, iTunes, Apple Music, Apple TV+, the developer and software update domains, ...), without the entries that it marks as hosted in mainland China (they are in Apple CN below). Apple documents its domains for admins to read, not in a form that a build can read
 - Addresses: the ones that Apple announces itself, from AS714 and AS6185, as [RIPEstat](https://stat.ripe.net/docs/02.data-api/announced-prefixes.html) sees them
-- The system processes of Apple that connect without a domain, which no list can carry, are written by hand in [`Source/non_ip/apple_services.conf`](Source/non_ip/apple_services.conf)
+- Collected by hand: the domains, and the system processes of Apple that connect without a domain, which no list can carry ([`Source/non_ip/apple_services.conf`](Source/non_ip/apple_services.conf)), and the ranges that Apple does not announce itself ([`Source/ip/apple_services.conf`](Source/ip/apple_services.conf))
 
 ```ini
+# Non IP
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/apple_services.conf,[Replace with your policy]
+```
+
+```ini
+# IP
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/apple_services.conf,[Replace with your policy]
 ```
 
 #### Apple CN
 
-- Automatically generated
+- Automatically generated, plus what is collected by hand ([`Source/non_ip/apple_cn.conf`](Source/non_ip/apple_cn.conf)), which the update keeps
 - The part of the same list that the community marks as hosted in mainland China (`@cn`): Cloud Guizhou (`icloud.com.cn`), the mainland-China-only edition of Apple Maps, the App Store of mainland China, and more
 
 ```ini
@@ -298,6 +311,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 #### Microsoft
 
 - Automatically generated from the list that the community keeps for Microsoft ([`microsoft`](https://github.com/v2fly/domain-list-community/blob/master/data/microsoft): Office 365, OneDrive, Outlook, Xbox, Bing, Azure, Windows Update, ...), without the entries that it marks as hosted in mainland China, and without GitHub, which has a ruleset of its own above
+- Plus what is collected by hand ([`Source/non_ip/microsoft.conf`](Source/non_ip/microsoft.conf), which has keyword rules as well), which the update keeps
 - Microsoft publishes the endpoints of Microsoft 365 for admins to read, but they only hold Microsoft 365, and they add the domains of the certificate authorities that it needs, which are not Microsoft's to route. The domains of Teams, which Microsoft does publish, are in the ruleset above
 
 ```ini
@@ -306,22 +320,24 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 #### Large File Downloads (Software Updates, Operating Systems, etc.)
 
-- Automatically generated
+- Automatically generated, plus what is collected by hand, which the update keeps
 - Object storage: the domains that the providers register in the [Public Suffix List](https://publicsuffix.org/) for their buckets (Amazon S3, Scaleway, Sakura)
 - What the community keeps for the downloads of game platforms (Steam, Epic, Blizzard, Riot, Xbox, PlayStation, Nintendo, ...), for the software updates of Apple devices that Apple documents, and for the registries of containers (Docker Hub, GHCR, Quay, ...). The CDNs of the game platforms inside mainland China are left out, they are for `domestic`
-- Mirrors and package registries that nobody lists in one place (Linux distribution mirrors, npm, PyPI, ...) are not in it
+- Collected by hand: the mirrors and package registries that nobody lists in one place (Linux distribution mirrors, universities, ...) and the regional object storage ([`Source/domainset/download.conf`](Source/domainset/download.conf)), the game downloads ([`Source/domainset/game-download.conf`](Source/domainset/game-download.conf), which is a ruleset of its own as well), and the patterns and addresses ([`Source/non_ip/download.conf`](Source/non_ip/download.conf) and [`Source/ip/download.conf`](Source/ip/download.conf))
 - These domains may include Microsoft and Apple CDN nodes inside mainland China. You can use them together with the Microsoft CDN and Apple CDN rulesets above and assign the direct policy.
 - If you are using a commercial public proxy service and your provider offers nodes that bill traffic consumption at a low rate multiplier, you can use the rulesets above to route traffic to those nodes
 
 ```ini
 DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/domainset/download.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/download.conf,[Replace with your policy]
 ```
 
 #### Intranet Domains and LAN IPs
 
-- Automatically generated
+- Automatically generated, plus what is collected by hand, which the update keeps
 - Domains: the list that the community keeps for private networks ([`private`](https://github.com/v2fly/domain-list-community/blob/master/data/private)). It follows the IANA registries of the special-use domain names and of the locally-served DNS zones, and adds the names that routers and local tools answer for. It contains `.local` and the `in-addr.arpa` domains of LAN IPs (i.e., AS112 domains). These domains are generally resolved to LAN IPs, need to be resolved by the internal DNS, and need to be accessed directly.
 - IPs: the ranges that the community keeps for addresses that are not on the internet ([`private.txt`](https://github.com/v2fly/geoip/blob/release/text/private.txt)), without `198.18.0.0/15`, which Surge and other tools use for virtual IPs
+- Collected by hand: the names of routers and local tools that the Local DNS Mapping module of this project knows ([`Source/non_ip/direct.ts`](Source/non_ip/direct.ts)), and the ranges ([`Source/ip/lan.conf`](Source/ip/lan.conf))
 
 ```ini
 # Non IP
@@ -336,17 +352,22 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 #### Common Mainland China Services
 
 - Automatically generated from the list that the community keeps for the domains of mainland China ([`cn`](https://github.com/v2fly/domain-list-community/blob/master/data/cn): its services, the `.cn` domains, and what the lists of foreign companies mark as hosted there), and the domains that the Local DNS Mapping module of this project gives a DNS to ([`Source/non_ip/domestic.ts`](Source/non_ip/domestic.ts))
+- Plus what is collected by hand, which the update keeps: the domains ([`Source/non_ip/domestic.conf`](Source/non_ip/domestic.conf), with the CDN domains of domestic services that go direct wherever you are) and a few addresses ([`Source/ip/domestic.conf`](Source/ip/domestic.conf))
 - For matching by IP address, use the [chnroute CIDR](#chnroute-cidr) ruleset below
 
 ```ini
+# Non IP
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/domestic.conf,DIRECT
+
+# IP
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/domestic.conf,DIRECT
 ```
 
 #### Services That Should Go Direct
 
-- Automatically generated
+- Automatically generated, plus what is collected by hand, which the update keeps
 - PT sites ([`category-pt`](https://github.com/v2fly/domain-list-community/blob/master/data/category-pt)), academic publishers and databases ([`category-scholar-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-scholar-!cn) and [`category-scholar-cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-scholar-cn)) and Xunlei, from the lists of the community, and the hotspot authentication (captive portal) pages and the pages of routers that the Local DNS Mapping module of this project knows ([`Source/non_ip/direct.ts`](Source/non_ip/direct.ts))
-- The process names of proxy tools and download tools, which no list of domains can carry, are written by hand in [`Source/non_ip/direct.conf`](Source/non_ip/direct.conf)
+- Collected by hand ([`Source/non_ip/direct.conf`](Source/non_ip/direct.conf)): LAN cache services and other domains that no list has, and the process names of proxy tools and download tools, which no list of domains can carry
 - Just use DIRECT
 
 ```ini
@@ -357,6 +378,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 #### Common Services in Other Countries and Regions
 
 - Automatically generated from the lists that the community keeps: [`geolocation-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/geolocation-!cn), the common services from other countries and regions, such as Google, Reddit, Facebook, Twitter, Discord, and GitHub, and [`tld-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/tld-!cn), the ccTLDs and gTLDs of other countries and regions
+- Plus what is collected by hand, which the update keeps: the domains that no list has ([`Source/non_ip/global.conf`](Source/non_ip/global.conf)) and the table of Google's domains and the like ([`Source/non_ip/global.ts`](Source/non_ip/global.ts))
 - For these rules, just use a proxy
 
 ```ini

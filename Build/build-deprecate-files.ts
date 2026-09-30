@@ -22,15 +22,6 @@ const REMOVED_FILES = [
   'List/non_ip/neteasemusic.conf',
   'List/ip/neteasemusic.conf',
   'List/non_ip/domestic_cdn.conf',
-  // what they held is in china_ip.conf (140.205.0.0/16, 162.14.0.0/16)
-  'List/ip/domestic.conf',
-  // only patterns and a few addresses, which no list of the community carries
-  'List/non_ip/cdn.conf',
-  'List/ip/cdn.conf',
-  'List/non_ip/download.conf',
-  'List/ip/download.conf',
-  // it was published on its own as well: the game platforms are in domainset/download.conf, from the community's list
-  'List/domainset/game-download.conf',
   'Modules/sukka_disable_netease_music_v2_update_check.sgmodule',
   'Modules/Rules/*.sgmodule',
   'Internal/mihomo_nameserver_policy/*.conf',

@@ -11,6 +11,7 @@ import { $$fetch } from './lib/fetch-retry';
 import runAgainstSourceFile from './lib/run-against-source-file';
 import { nullthrow } from 'foxts/guard';
 import { Buffer } from 'node:buffer';
+import { GLOBAL } from '../Source/non_ip/global';
 
 export async function getTopOneMillionDomains() {
   const { parse: csvParser } = await import('csv-parse');
@@ -127,18 +128,30 @@ export async function parseGfwList() {
     topDomainTrie.whitelist(d);
   };
   await Promise.all([
-    runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip/global.conf'), callback, 'ruleset', keywordSet),
+    runAgainstSourceFile(path.join(SOURCE_DIR, 'non_ip/global.conf'), callback, 'ruleset', keywordSet),
     // runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip/domestic.conf'), callback, 'ruleset', keywordSet),
     runAgainstSourceFile(path.join(SOURCE_DIR, 'non_ip/reject.conf'), callback, 'ruleset', keywordSet),
     runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip/telegram.conf'), callback, 'ruleset', keywordSet),
     runAgainstSourceFile(path.resolve(OUTPUT_SURGE_DIR, 'non_ip/stream.conf'), callback, 'ruleset', keywordSet),
-    runAgainstSourceFile(path.resolve(OUTPUT_SURGE_DIR, 'non_ip/ai.conf'), callback, 'ruleset', keywordSet),
-    runAgainstSourceFile(path.resolve(OUTPUT_SURGE_DIR, 'non_ip/microsoft.conf'), callback, 'ruleset', keywordSet),
-    runAgainstSourceFile(path.resolve(OUTPUT_SURGE_DIR, 'non_ip/apple_services.conf'), callback, 'ruleset', keywordSet),
+    runAgainstSourceFile(path.resolve(SOURCE_DIR, 'non_ip/ai.conf'), callback, 'ruleset', keywordSet),
+    runAgainstSourceFile(path.resolve(SOURCE_DIR, 'non_ip/microsoft.conf'), callback, 'ruleset', keywordSet),
+    runAgainstSourceFile(path.resolve(SOURCE_DIR, 'non_ip/apple_services.conf'), callback, 'ruleset', keywordSet),
     runAgainstSourceFile(path.resolve(OUTPUT_SURGE_DIR, 'domainset/reject.conf'), callback, 'domainset'),
     runAgainstSourceFile(path.resolve(OUTPUT_SURGE_DIR, 'domainset/reject_extra.conf'), callback, 'domainset'),
     runAgainstSourceFile(path.resolve(OUTPUT_SURGE_DIR, 'domainset/cdn.conf'), callback, 'domainset')
   ]);
+
+  Object.values(GLOBAL).forEach(({ domains }) => {
+    domains.forEach(domain => {
+      if (domain[0] === '$') {
+        callback(domain.slice(1), false);
+      } else if (domain[0] === '+') {
+        callback(domain.slice(1), true);
+      } else {
+        callback(domain, true);
+      }
+    });
+  });
 
   whiteSet.forEach(domain => gfwListTrie.whitelist(domain[0] === '.' ? domain : '.' + domain));
 
