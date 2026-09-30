@@ -1,13 +1,17 @@
 import { describe, it } from 'mocha';
 import { expect } from 'earl';
 import { createFixedArray } from 'foxts/create-fixed-array';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import {
   SPEEDTEST_NET_REGIONS,
   extractLibrespeedHostnames,
   extractSpeedtestNetHostnames,
   fetchSpeedtestNetHostnames,
-  pickSpeedtestNetRegions
+  pickSpeedtestNetRegions,
+  readPreviousSpeedtestHostnames
 } from './speedtest-servers';
 import { ResponseError } from './fetch-retry';
 
@@ -145,5 +149,42 @@ describe('fetchSpeedtestNetHostnames', () => {
   it('is fine with a region nobody has servers in', async () => {
     const hostnames = await fetchSpeedtestNetHostnames(0, region => Promise.resolve(region === 'Macau' ? [] : [{ host: 'a.example.com:80' }]), 0);
     expect(hostnames).toHaveLength(pickSpeedtestNetRegions(0).length - 1);
+  });
+});
+
+function tmpPreviousList() {
+  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'speedtest-previous-')), 'speedtest.conf');
+}
+
+describe('readPreviousSpeedtestHostnames', () => {
+  it('reads the hostnames of the previous list and leaves its comments out', async () => {
+    const file = tmpPreviousList();
+    fs.writeFileSync(file, [
+      '#########################################',
+      '# Surge Ruleset - Speedtest Domains',
+      '#########################################',
+      'a.example.com',
+      'b.example.com',
+      '################## EOF ##################',
+      ''
+    ].join('\n'));
+
+    expect(await readPreviousSpeedtestHostnames(file)).toEqual(['a.example.com', 'b.example.com']);
+  });
+
+  it('does not carry the copy marker of the lists built before it was dropped over', async () => {
+    const file = tmpPreviousList();
+    fs.writeFileSync(file, [
+      'a.example.com',
+      '7h15.ru1353t.1s.m4d3.by.5ukk4w.skk.moe',
+      'b.example.com',
+      ''
+    ].join('\n'));
+
+    expect(await readPreviousSpeedtestHostnames(file)).toEqual(['a.example.com', 'b.example.com']);
+  });
+
+  it('has nothing to carry over on the very first build', async () => {
+    expect(await readPreviousSpeedtestHostnames(tmpPreviousList())).toEqual([]);
   });
 });

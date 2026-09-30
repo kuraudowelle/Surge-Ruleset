@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import picocolors from 'picocolors';
 import tldts from 'tldts-experimental';
 import { fastUri } from 'fast-uri';
@@ -7,6 +8,7 @@ import { isProbablyIp } from 'foxts/is-probably-ip';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 
 import { $$fetch, ResponseError } from './fetch-retry';
+import { readFileIntoProcessedArray } from './fetch-text-by-line';
 
 export interface SpeedTestServer {
   url: string,
@@ -159,6 +161,22 @@ type FetchRegionServers = (region: string) => Promise<Array<Partial<SpeedTestSer
 const fetchSpeedtestNetServers: FetchRegionServers = (region) => fetchJsonArray<SpeedTestServer>(
   SPEEDTEST_NET_SERVERS_API + '?engine=js&limit=100&search=' + encodeURIComponent(region)
 );
+
+// The copy marker Sukka's builds put into every list. The lists built before it was dropped still carry it.
+const SUKKA_COPY_MARKER = '7h15.ru1353t.1s.m4d3.by.5ukk4w.skk.moe';
+
+/**
+ * The hostnames the speedtest ruleset keeps from the previous build. There is nothing to carry
+ * over on the very first build.
+ */
+export async function readPreviousSpeedtestHostnames(file: string): Promise<string[]> {
+  if (!fs.existsSync(file)) {
+    return [];
+  }
+
+  // a marker is no speedtest server, and carrying it over would keep it in the list for good
+  return (await readFileIntoProcessedArray(file)).filter(hostname => hostname !== SUKKA_COPY_MARKER);
+}
 
 /**
  * Never rejects: the speedtest ruleset keeps the domains of the previous builds, so a build that could
