@@ -136,6 +136,42 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/ai.conf,[Replace with your policy]
 ```
 
+#### Reddit / Homebrew / GitHub / TikTok / YouTube / YouTube Music / Google / Gemini / Antigravity
+
+- Domain rules, automatically generated: every build downloads the lists of [v2fly/domain-list-community](https://github.com/v2fly/domain-list-community/tree/master/data) and uses them as they are at that moment, so the rulesets follow what the community adds and removes. `include:` lines are followed (a list that is made of other lists, like `google`, gives the domains of all of them) and entries marked `@ads` are left out
+- One file per service, so every service can go to its own policy
+
+| Ruleset | Built from |
+| --- | --- |
+| `reddit.conf` | [`reddit`](https://github.com/v2fly/domain-list-community/blob/master/data/reddit) |
+| `homebrew.conf` | [`homebrew`](https://github.com/v2fly/domain-list-community/blob/master/data/homebrew). Homebrew's bottles come from `ghcr.io`, which `github.conf` has |
+| `github.conf` | [`github`](https://github.com/v2fly/domain-list-community/blob/master/data/github), and the lists it includes (GitHub Copilot, npm) |
+| `tiktok.conf` | [`tiktok`](https://github.com/v2fly/domain-list-community/blob/master/data/tiktok) |
+| `youtube.conf` | [`youtube`](https://github.com/v2fly/domain-list-community/blob/master/data/youtube) |
+| `google.conf` | [`google`](https://github.com/v2fly/domain-list-community/blob/master/data/google), and the lists it includes (YouTube, Firebase, Android, Google Play, ...) |
+| `gemini.conf` | [`google-gemini`](https://github.com/v2fly/domain-list-community/blob/master/data/google-gemini): Gemini and the Google AI products that list groups with it (AI Studio, NotebookLM, Jules, Antigravity, ...) |
+| `antigravity.conf` | The community has no list for Antigravity, so this is taken from the `google-gemini` list above: the hostnames that contain `antigravity`. What Antigravity shares with the other Google AI products is in `gemini.conf` |
+| `youtubemusic.conf` | **Manually maintained**, the only one that is not generated: the community has no list for YouTube Music, and it shares its domains with YouTube, so [the file](Source/non_ip/youtubemusic.conf) only has what sets it apart (its hostname and its `USER-AGENT` rules) |
+
+> The rulesets overlap (`google.conf` has YouTube and the Google AI products, `gemini.conf` has Antigravity), and a connection follows the first rule that matches, so put the more specific rulesets first, as below.
+>
+> They follow the community's idea of a service, which can be narrower than the hand-written rules of this project (`global.conf`, `stream.conf`, `ai.conf`), and those stay as they are. `USER-AGENT` and `URL-REGEX` rules cannot come from a domain list either.
+>
+> A service whose list is gone or empty does not hold back the other rulesets: its file stays as the last build left it, and the build log says so (on GitHub Actions also as a warning on the workflow run).
+
+```ini
+# Non IP
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/youtubemusic.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/youtube.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/antigravity.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/gemini.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/github.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/homebrew.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/reddit.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/tiktok.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/google.conf,[Replace with your policy]
+```
+
 #### Telegram
 
 - Domain rules: automatically generated from the [v2fly/domain-list-community `telegram`](https://github.com/v2fly/domain-list-community/blob/master/data/telegram) list, plus [a few extra domains](Source/non_ip/telegram.conf) and `PROTOCOL,MTProto` (see [Surge as an MTProto proxy server](#surge-as-an-mtproto-proxy-server))
