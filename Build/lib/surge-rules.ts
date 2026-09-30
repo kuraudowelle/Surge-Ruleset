@@ -94,6 +94,8 @@ export class RuleSet {
   readonly types = new Set<string>();
   /** The types that this cannot evaluate, with the number of rules of each: they never match */
   readonly unsupported = new Map<string, number>();
+  /** The number of rules of the file: a line of a DOMAIN-SET counts, and a comment or a blank line does not */
+  readonly size: number;
 
   private readonly lines: string[];
   private readonly exact = new Map<string, number>();
@@ -105,12 +107,14 @@ export class RuleSet {
   constructor(readonly name: string, content: string, options: RuleSetOptions = {}) {
     this.lines = content.split('\n');
 
+    let size = 0;
     for (let i = 0, len = this.lines.length; i < len; i++) {
       const text = this.lines[i].trim();
       if (text.length === 0 || text[0] === '#') {
         continue;
       }
       const line = i + 1;
+      size++;
 
       if (options.domainSet) {
         if (text[0] === '.') {
@@ -127,6 +131,7 @@ export class RuleSet {
         throw new SyntaxError(`${name}:${line}: ${extractErrorMessage(error, false) ?? 'unreadable'}: ${text}`, { cause: error });
       }
     }
+    this.size = size;
   }
 
   private addRule(text: string, line: number) {

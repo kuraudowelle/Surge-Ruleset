@@ -1,34 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import process from 'node:process';
 import { before, describe, it } from 'mocha';
 import { expect } from 'earl';
 import { nullthrow } from 'foxts/guard';
 import { split0th } from 'foxts/split-nth';
 
 import { ROOT_DIR } from '../constants/dir';
+import { KNOWN_UNSUPPORTED_RULE_TYPES, LIST_DIR, readList } from './published-lists';
 import { RuleSet, SUPPORTED_RULE_TYPES, allMatches, firstMatch } from './surge-rules';
 import type { OrderedRuleSet, Request } from './surge-rules';
 import { parseCheckTable, parsePolicies, parseProxyGroups, parseRuleSection } from './readme-rule-section';
 import type { RuleSection, RuleSectionEntry } from './readme-rule-section';
-
-/**
- * The Rule section of the README, run against the rulesets that this project publishes: which ruleset does a request
- * match first? It asserts the ruleset, not the policy: with every ruleset on `Proxy`, a wrong order gives the same
- * policy and no error in Surge, and it is the order that decides which policy the day one ruleset gets another.
- *
- * The rulesets are read from `List/`, or from the directory that SURGE_LIST_DIR names: the CI of this repository
- * points it at `public/List` after a build, because an upstream list can bring an overlap that no source changed.
- *
- * The simulation is `surge-rules.ts`, and its header says what it evaluates and what it does not. In short, it
- * evaluates DOMAIN, DOMAIN-SUFFIX, DOMAIN-KEYWORD, DOMAIN-WILDCARD (and DOMAIN-SET lines), PROCESS-NAME, USER-AGENT,
- * PROTOCOL, DEST-PORT, SRC-IP, IP-CIDR, IP-CIDR6 and AND, OR, NOT. It does not evaluate URL-REGEX and IP-ASN, which the
- * lists use, and it does not resolve DNS or look at the TLS SNI: a request only has what a probe below gives it.
- */
-const LIST_DIR = process.env.SURGE_LIST_DIR ? path.resolve(process.env.SURGE_LIST_DIR) : path.join(ROOT_DIR, 'List');
-
-/** Rule types that the lists use and the simulation does not evaluate: a probe cannot see them */
-const KNOWN_UNSUPPORTED_RULE_TYPES = new Set(['URL-REGEX', 'IP-ASN']);
 
 const BUILT_IN_POLICIES = new Set(['DIRECT', 'REJECT', 'REJECT-DROP', 'REJECT-NO-DROP']);
 
@@ -61,7 +43,7 @@ function label(request: Request) {
 
 /** The address that a ruleset of IP-CIDR rules starts with: an address that the ruleset has */
 function firstAddressOf(name: string) {
-  const line = nullthrow(fs.readFileSync(path.join(LIST_DIR, name), 'utf8').split('\n').find(text => text.startsWith('IP-CIDR,')), `${name} has no IP-CIDR`);
+  const line = nullthrow(readList(name).split('\n').find(text => text.startsWith('IP-CIDR,')), `${name} has no IP-CIDR`);
   return split0th(line.slice('IP-CIDR,'.length), '/');
 }
 
@@ -74,6 +56,20 @@ function moved(entries: readonly RuleSectionEntry[], name: string, where: 'befor
   return [...rest.slice(0, at + (where === 'after' ? 1 : 0)), moving, ...rest.slice(at + (where === 'after' ? 1 : 0))];
 }
 
+/**
+ * The Rule section of the README, run against the rulesets that this project publishes: which ruleset does a request
+ * match first? It asserts the ruleset, not the policy: with every ruleset on `Proxy`, a wrong order gives the same
+ * policy and no error in Surge, and it is the order that decides which policy the day one ruleset gets another.
+ *
+ * The rulesets are read from `List/`, or from the directory that SURGE_LIST_DIR names (see published-lists.ts): the CI
+ * of this repository points it at `public/List` after a build and before the deployment, because an upstream list can
+ * bring an overlap that no source changed.
+ *
+ * The simulation is `surge-rules.ts`, and its header says what it evaluates and what it does not. In short, it
+ * evaluates DOMAIN, DOMAIN-SUFFIX, DOMAIN-KEYWORD, DOMAIN-WILDCARD (and DOMAIN-SET lines), PROCESS-NAME, USER-AGENT,
+ * PROTOCOL, DEST-PORT, SRC-IP, IP-CIDR, IP-CIDR6 and AND, OR, NOT. It does not evaluate URL-REGEX and IP-ASN, which the
+ * lists use, and it does not resolve DNS or look at the TLS SNI: a request only has what a probe below gives it.
+ */
 describe('the Rule section of the README', () => {
   let readme: string;
   let section: RuleSection;
@@ -85,7 +81,7 @@ describe('the Rule section of the README', () => {
     section = parseRuleSection(readme);
     for (let i = 0, len = section.entries.length; i < len; i++) {
       const entry = section.entries[i];
-      rulesets.set(entry.ruleset, new RuleSet(entry.ruleset, fs.readFileSync(path.join(LIST_DIR, entry.ruleset), 'utf8'), { domainSet: entry.kind === 'DOMAIN-SET' }));
+      rulesets.set(entry.ruleset, new RuleSet(entry.ruleset, readList(entry.ruleset), { domainSet: entry.kind === 'DOMAIN-SET' }));
     }
   });
 
@@ -127,6 +123,16 @@ describe('the Rule section of the README', () => {
       }
     });
 
+    it('reads no ruleset that is empty: the service that it stands for would fall to FINAL, and Surge says nothing', () => {
+      const empty: string[] = [];
+      rulesets.forEach((ruleSet, name) => {
+        if (ruleSet.size === 0) {
+          empty.push(name);
+        }
+      });
+      expect(empty).toEqual([]);
+    });
+
     it('keeps every ruleset for hostnames in front of every IP ruleset, so that Surge resolves DNS only when it has to', () => {
       const entries = active();
       const firstIp = entries.findIndex(entry => entry.ruleset.startsWith('ip/'));
@@ -147,7 +153,7 @@ describe('the Rule section of the README', () => {
         if (name.startsWith('ip/')) {
           return;
         }
-        const lines = fs.readFileSync(path.join(LIST_DIR, name), 'utf8').split('\n');
+        const lines = readList(name).split('\n');
         for (let i = 0, len = lines.length; i < len; i++) {
           if (rAddressRule.test(lines[i]) && !lines[i].endsWith(',no-resolve')) {
             offenders.push(`${name}:${i + 1}: ${lines[i]}`);

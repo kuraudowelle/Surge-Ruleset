@@ -231,6 +231,13 @@ describe('RuleSet: lines that are not rules', () => {
   it('skips comments and empty lines, and counts the lines from 1', () => {
     expect(ruleSet(['#########', '# header', '', '   ', 'DOMAIN,a.example.com']).match({ hostname: 'a.example.com' })).toEqual({ line: 5, rule: 'DOMAIN,a.example.com' });
   });
+
+  it('counts the rules of the file, and not its comments and blank lines, in a ruleset, in a DOMAIN-SET, and when it cannot evaluate them', () => {
+    expect(ruleSet([]).size).toEqual(0);
+    expect(ruleSet(['#########', '# Size: 0', '#########', '################## EOF ##################']).size).toEqual(0);
+    expect(ruleSet(['# header', 'DOMAIN,a.example.com', '', 'DOMAIN-SUFFIX,b.example.com', '# a comment', 'IP-ASN,44907']).size).toEqual(3);
+    expect(new RuleSet('set.conf', ['# header', 'a.example.com', '.b.example.com', ''].join('\n'), { domainSet: true }).size).toEqual(2);
+  });
 });
 
 describe('firstMatch and allMatches', () => {
