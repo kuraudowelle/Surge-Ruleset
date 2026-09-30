@@ -1,7 +1,7 @@
 import { describe, it } from 'mocha';
 import { expect } from 'earl';
 
-import { RuleSet, SUPPORTED_RULE_TYPES, allMatches, firstMatch } from './surge-rules';
+import { RuleSet, SUPPORTED_RULE_TYPES, allMatches, firstMatch, leavesOf } from './surge-rules';
 import type { OrderedRuleSet, Request } from './surge-rules';
 
 const ruleSet = (content: string[], name = 'test.conf') => new RuleSet(name, content.join('\n'));
@@ -189,10 +189,82 @@ describe('RuleSet: logical rules', () => {
     expect(matches(rules, { hostname: 'c.example.com', process: 'other' })).toEqual(null);
   });
 
-  it('never matches a logical rule that holds a type it cannot evaluate, and counts it', () => {
+  it('never matches a logical rule that holds a type it cannot evaluate, and counts that type', () => {
     const rules = ruleSet([String.raw`AND,((DOMAIN-SUFFIX,example.com),(URL-REGEX,^https://example\.com/))`]);
     expect(rules.match({ hostname: 'example.com', destIp: '1.1.1.1' })).toEqual(null);
-    expect(rules.unsupported).toEqual(new Map([['AND', 1]]));
+    // the type inside is what the rule cannot be evaluated for, and it is not the AND
+    expect(rules.unsupported).toEqual(new Map([['URL-REGEX', 1]]));
+  });
+
+  it('has the types of the rules inside a logical rule, to any depth', () => {
+    const rules = ruleSet(['AND,((DOMAIN,a.example.com),(OR,((PROCESS-NAME,tool),(NOT,((SRC-IP,10.0.0.0/8))))))']);
+    expect([...rules.types].sort()).toEqual(['AND', 'DOMAIN', 'NOT', 'OR', 'PROCESS-NAME', 'SRC-IP']);
+    expect(rules.unsupported).toEqual(new Map());
+  });
+
+  it('counts a type that it does not know inside a logical rule, and every one of them, at any depth', () => {
+    const rules = ruleSet([
+      'AND,((DOMAIN,a.example.com),(FOO,bar))',
+      'OR,((GEOIP,CN),(AND,((BAZ,1),(DOMAIN,b.example.com))))',
+      'DOMAIN,c.example.com'
+    ]);
+    expect(rules.unsupported).toEqual(new Map([['FOO', 1], ['GEOIP', 1], ['BAZ', 1]]));
+    expect([...rules.types].sort()).toEqual(['AND', 'BAZ', 'DOMAIN', 'FOO', 'GEOIP', 'OR']);
+    // a rule that it cannot evaluate never matches, and one that it can is not held back by them
+    expect(rules.match({ hostname: 'a.example.com' })).toEqual(null);
+    expect(rules.match({ hostname: 'c.example.com' })).toEqual({ line: 3, rule: 'DOMAIN,c.example.com' });
+  });
+});
+
+describe('RuleSet: address families and ranges, wherever a rule stands', () => {
+  it('takes an IPv4 range in IP-CIDR and an IPv6 range in IP-CIDR6, and says which is which', () => {
+    expect(() => ruleSet(['IP-CIDR,2001:db8::/32']).match({})).toThrow('test.conf:1: IP-CIDR takes an IPv4 address or range, and this is IPv6: IP-CIDR,2001:db8::/32');
+    expect(() => ruleSet(['IP-CIDR6,192.0.2.0/24']).match({})).toThrow('IP-CIDR6 takes an IPv6 address or range, and this is IPv4');
+    expect(matches(['IP-CIDR,192.0.2.0/24'], { destIp: '192.0.2.5' })).toEqual('IP-CIDR,192.0.2.0/24');
+    expect(matches(['IP-CIDR6,2001:db8::/32'], { destIp: '2001:db8::1' })).toEqual('IP-CIDR6,2001:db8::/32');
+  });
+
+  it('holds the rules inside an AND, an OR and a NOT to it as well, to any depth', () => {
+    expect(() => ruleSet(['DOMAIN,a.example.com', 'AND,((DOMAIN,a.example.com),(IP-CIDR,2001:db8::/32))']).match({}))
+      .toThrow('test.conf:2: IP-CIDR takes an IPv4 address or range, and this is IPv6');
+    expect(() => ruleSet(['OR,((AND,((IP-CIDR6,192.0.2.0/24),(DOMAIN,x.example.com))),(DOMAIN,y.example.com))']).match({}))
+      .toThrow('IP-CIDR6 takes an IPv6 address or range, and this is IPv4');
+    expect(() => ruleSet(['NOT,((IP-CIDR,2001:db8::/32))']).match({})).toThrow('IP-CIDR takes an IPv4');
+
+    const rules = ['AND,((DOMAIN,a.example.com),(IP-CIDR,192.0.2.0/24,no-resolve))'];
+    expect(matches(rules, { hostname: 'a.example.com', destIp: '192.0.2.5' })).toEqual(rules[0]);
+    expect(matches(rules, { hostname: 'a.example.com', destIp: '198.51.100.5' })).toEqual(null);
+  });
+
+  it('reads the length of a prefix as strictly as the builds do, inside a logical rule as well', () => {
+    expect(() => ruleSet(['IP-CIDR,192.0.2.0/33']).match({})).toThrow('not an address or a range');
+    expect(() => ruleSet(['IP-CIDR6,2001:db8::/129']).match({})).toThrow('not an address or a range');
+    expect(() => ruleSet(['AND,((DOMAIN,a.example.com),(IP-CIDR,192.0.2.0/33))']).match({})).toThrow('not an address or a range');
+    expect(() => ruleSet(['AND,((DOMAIN,a.example.com),(SRC-IP,10.0.0.0/33))']).match({})).toThrow('not an address or a range');
+    expect(() => ruleSet(['AND,((DOMAIN,a.example.com),(SRC-IP,not-an-address))']).match({})).toThrow('not an address or a range');
+  });
+});
+
+describe('leavesOf', () => {
+  it('gives a rule that is not a logical one as it is, with its options', () => {
+    expect(leavesOf('DOMAIN-SUFFIX,example.com')).toEqual([{ type: 'DOMAIN-SUFFIX', value: 'example.com', options: [] }]);
+    expect(leavesOf('IP-CIDR,192.0.2.0/24,no-resolve')).toEqual([{ type: 'IP-CIDR', value: '192.0.2.0/24', options: ['no-resolve'] }]);
+  });
+
+  it('gives the rules inside a logical rule, to any depth, in the order that they are written', () => {
+    expect(leavesOf('AND,((DOMAIN,a.example.com),(OR,((PROCESS-NAME,tool),(NOT,((IP-CIDR,192.0.2.0/24,no-resolve))))))')).toEqual([
+      { type: 'DOMAIN', value: 'a.example.com', options: [] },
+      { type: 'PROCESS-NAME', value: 'tool', options: [] },
+      { type: 'IP-CIDR', value: '192.0.2.0/24', options: ['no-resolve'] }
+    ]);
+  });
+
+  it('gives the rules that it would not evaluate, and names what it cannot read', () => {
+    expect(leavesOf('AND,((FOO,bar),(DOMAIN,a.example.com))').map(leaf => leaf.type)).toEqual(['FOO', 'DOMAIN']);
+    expect(() => leavesOf('DOMAIN')).toThrow('not a rule');
+    expect(() => leavesOf('DOMAIN,')).toThrow('no value');
+    expect(() => leavesOf('AND,DOMAIN,a.example.com')).toThrow('a logical rule needs its sub-rules in parentheses');
+    expect(() => leavesOf('AND,((DOMAIN,a.example.com),(DOMAIN))')).toThrow('not a rule');
   });
 });
 

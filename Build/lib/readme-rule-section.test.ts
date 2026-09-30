@@ -1,7 +1,8 @@
 import { describe, it } from 'mocha';
 import { expect } from 'earl';
 
-import { LIST_URL_PREFIX, parseCheckTable, parsePolicies, parseProxyGroups, parseRuleSection } from './readme-rule-section';
+import { LIST_URL_PREFIX, parseCheckTable, parsePolicies, parseProxyGroups, parseRuleSection, rRegionalIpRuleset, regionalIpProblems } from './readme-rule-section';
+import type { RuleSectionEntry } from './readme-rule-section';
 
 const README = [
   '# Surge Ruleset',
@@ -122,5 +123,78 @@ describe('parseCheckTable', () => {
 
   it('says when there is no such section', () => {
     expect(() => parseCheckTable('# nothing')).toThrow('no "### Check It" section');
+  });
+});
+
+function entry(ruleset: string, policy = 'Streaming', optional = false): RuleSectionEntry {
+  return {
+    kind: 'RULE-SET',
+    url: LIST_URL_PREFIX + ruleset,
+    ruleset,
+    policy,
+    options: [],
+    optional
+  };
+}
+
+const sizes = (us = 0, jp = 0) => new Map([['ip/stream_us.conf', us], ['ip/stream_jp.conf', jp]]);
+
+describe('regionalIpProblems', () => {
+  /** The Rule section as the README has it: the regions for hostnames, then the addresses of all the services */
+  const section = [
+    entry('non_ip/stream_jp.conf'),
+    entry('non_ip/stream_us.conf'),
+    entry('non_ip/stream.conf'),
+    entry('ip/github.conf', 'GitHub'),
+    entry('ip/stream.conf')
+  ];
+
+  it('has nothing to say about the regions that have no address: the Rule section leaves them out', () => {
+    expect(regionalIpProblems(section, sizes())).toEqual([]);
+    expect(regionalIpProblems(section, new Map())).toEqual([]);
+  });
+
+  it('asks for a region that has addresses and is not in the Rule section, in front of ip/stream.conf', () => {
+    expect(regionalIpProblems(section, sizes(3))).toEqual(['ip/stream_us.conf has 3 rules, and is not in the Rule section: it goes in front of ip/stream.conf, switched on']);
+  });
+
+  it('asks for a region that has addresses and is only a comment in the Rule section to be switched on', () => {
+    const optional = [...section.slice(0, 4), entry('ip/stream_us.conf', 'Streaming', true), section[4]];
+    expect(regionalIpProblems(optional, sizes(3))).toEqual(['ip/stream_us.conf has 3 rules, and the Rule section has it as a comment: it goes in front of ip/stream.conf, switched on']);
+  });
+
+  it('asks for a region that has addresses and stands behind ip/stream.conf to stand in front of it', () => {
+    const behind = [...section, entry('ip/stream_us.conf')];
+    expect(regionalIpProblems(behind, sizes(3))).toEqual(['ip/stream_us.conf has 3 rules, and stands behind ip/stream.conf, which has its addresses as well: it goes in front of it']);
+  });
+
+  it('has nothing to say about a region that has addresses and is in front of ip/stream.conf on the policy of its region', () => {
+    const inFront = [...section.slice(0, 4), entry('ip/stream_us.conf'), section[4]];
+    expect(regionalIpProblems(inFront, sizes(3))).toEqual([]);
+    // the addresses of another region are not the concern of this one
+    expect(regionalIpProblems(inFront, sizes(3, 0))).toEqual([]);
+  });
+
+  it('asks for the policy of the region for its hostnames, when the region has a policy of its own', () => {
+    const own = [entry('non_ip/stream_us.conf', 'US Streaming'), entry('ip/stream_us.conf', 'Streaming'), entry('ip/stream.conf')];
+    expect(regionalIpProblems(own, sizes(3))).toEqual(['ip/stream_us.conf has 3 rules, and is on Streaming, and its region is on US Streaming (the policy of non_ip/stream_us.conf)']);
+    expect(regionalIpProblems([entry('non_ip/stream_us.conf', 'US Streaming'), entry('ip/stream_us.conf', 'US Streaming'), entry('ip/stream.conf')], sizes(3))).toEqual([]);
+  });
+
+  it('asks for the policy of ip/stream.conf when the Rule section has no ruleset of hostnames for the region', () => {
+    const noHostnames = [entry('ip/stream_jp.conf', 'Japan Streaming'), entry('ip/stream.conf')];
+    expect(regionalIpProblems(noHostnames, sizes(0, 2))).toEqual(['ip/stream_jp.conf has 2 rules, and is on Japan Streaming, and its region is on Streaming (the policy of ip/stream.conf)']);
+  });
+
+  it('reads every problem of every region that has addresses', () => {
+    expect(regionalIpProblems(section, sizes(3, 2))).toEqual([
+      'ip/stream_us.conf has 3 rules, and is not in the Rule section: it goes in front of ip/stream.conf, switched on',
+      'ip/stream_jp.conf has 2 rules, and is not in the Rule section: it goes in front of ip/stream.conf, switched on'
+    ]);
+  });
+
+  it('knows a ruleset of addresses of a region by its name, and not the one of all the services', () => {
+    expect(['ip/stream_us.conf', 'ip/stream_south_east_asia.conf', 'ip/stream_kr.conf'].every(name => rRegionalIpRuleset.test(name))).toEqual(true);
+    expect(['ip/stream.conf', 'non_ip/stream_us.conf', 'ip/telegram_asn.conf', 'ip/stream_us.conf.bak'].some(name => rRegionalIpRuleset.test(name))).toEqual(false);
   });
 });

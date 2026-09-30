@@ -1,7 +1,10 @@
 import net from 'node:net';
 import { ip2bigint, parse as parseCidr } from 'fast-cidr-tools';
 import { escapeRegexp } from 'fast-escape-regexp';
+import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { extractErrorMessage } from 'foxts/extract-error-message';
+
+import { getCidrVersion } from './cidr-lines';
 
 /**
  * A first-match simulation of the rules that this project publishes: which ruleset does a request match first,
@@ -18,11 +21,17 @@ import { extractErrorMessage } from 'foxts/extract-error-message';
  *   PROTOCOL                                                 the protocol, case-sensitive; TCP takes HTTP, HTTPS and
  *                                                            MTProto, UDP takes QUIC and STUN
  *   DEST-PORT, SRC-IP                                        a port, a range or a comparison; an address or a range
- *   IP-CIDR, IP-CIDR6                                        the address of the destination, when the request has one
- *   AND, OR, NOT                                             over the rules above
+ *   IP-CIDR, IP-CIDR6                                        the address of the destination, when the request has one:
+ *                                                            IP-CIDR takes an IPv4 range, IP-CIDR6 an IPv6 one
+ *   AND, OR, NOT                                             over the rules above, and over each other, to any depth
+ *
+ * A rule inside an AND, an OR or a NOT is read as strictly as one that stands by itself, wherever it stands: a rule
+ * that is not written as a rule, a range that is not a range, or a range of the wrong family is an error, and a type
+ * that is not evaluated is counted, and is in `types` as well.
  *
  * What it does not evaluate. A rule of a type that it cannot evaluate never matches, and `RuleSet.unsupported` says
- * how many there are of each type, so that a test can tell whether a list has more than it can see:
+ * how many there are of each type (in a logical rule as well: the rule that holds it never matches), so that a test can
+ * tell whether a list has more than it can see:
  *
  *   URL-REGEX, IP-ASN, GEOIP, and every other type that is not in the list above
  *   PROCESS-NAME with a path (a value that starts with a slash)
@@ -60,6 +69,12 @@ export const SUPPORTED_RULE_TYPES = [
 
 type Condition = (request: Request) => boolean;
 
+type LogicalType = 'AND' | 'OR' | 'NOT';
+
+function isLogicalType(type: string): type is LogicalType {
+  return type === 'AND' || type === 'OR' || type === 'NOT';
+}
+
 const rComparison = /^(>=|<=|>|<)(\d+)$/;
 const rRange = /^(\d+)-(\d+)$/;
 const rPort = /^\d+$/;
@@ -90,9 +105,9 @@ export interface OrderedRuleSet {
 }
 
 export class RuleSet {
-  /** Every rule type that the file uses, whether this can evaluate it or not */
+  /** Every rule type that the file uses, whether this can evaluate it or not, and inside a logical rule as well */
   readonly types = new Set<string>();
-  /** The types that this cannot evaluate, with the number of rules of each: they never match */
+  /** The types that this cannot evaluate, with the number of rules of each, inside a logical rule as well: they never match */
   readonly unsupported = new Map<string, number>();
   /** The number of rules of the file: a line of a DOMAIN-SET counts, and a comment or a blank line does not */
   readonly size: number;
@@ -143,10 +158,13 @@ export class RuleSet {
     const rest = text.slice(comma + 1);
     this.types.add(type);
 
-    if (type === 'AND' || type === 'OR' || type === 'NOT') {
-      const condition = parseLogical(type, rest);
+    if (isLogicalType(type)) {
+      const unsupported: string[] = [];
+      const condition = parseLogical(type, rest, { types: this.types, unsupported });
       if (condition === null) {
-        this.unsupported.set(type, (this.unsupported.get(type) ?? 0) + 1);
+        for (let i = 0, len = unsupported.length; i < len; i++) {
+          this.unsupported.set(unsupported[i], (this.unsupported.get(unsupported[i]) ?? 0) + 1);
+        }
       } else {
         this.conditions.push([condition, line]);
       }
@@ -297,9 +315,9 @@ function parsePort(value: string): (port: number) => boolean {
   throw new SyntaxError('not a port, a range or a comparison');
 }
 
-/** The addresses of `10.0.0.0/8`, or of a single address, as numbers */
+/** The addresses of `10.0.0.0/8`, or of a single address, as numbers: the check is the one that the builds make of every range */
 function parseRange(value: string): [start: bigint, end: bigint, version: 4 | 6] {
-  const version = net.isIP(value.includes('/') ? value.slice(0, value.indexOf('/')) : value);
+  const version = getCidrVersion(value);
   if (version === 0) {
     throw new SyntaxError('not an address or a range');
   }
@@ -362,6 +380,10 @@ function buildCondition(type: string, value: string): Condition | null {
     case 'IP-CIDR':
     case 'IP-CIDR6': {
       const range = parseRange(value);
+      const family = type === 'IP-CIDR' ? 4 : 6;
+      if (range[2] !== family) {
+        throw new SyntaxError(`${type} takes an IPv${family} address or range, and this is IPv${range[2]}`);
+      }
       return request => inRange(range, request.destIp);
     }
     default:
@@ -403,22 +425,37 @@ function splitSubRules(text: string): string[] {
   return groups;
 }
 
+/** What the reading of a logical rule finds in it, at any depth */
+interface ParseContext {
+  /** The type of every rule that was read, the logical ones and the ones inside them */
+  types: Set<string>,
+  /** The type of every rule that this cannot evaluate, once for each */
+  unsupported: string[]
+}
+
 /** One sub-rule, `TYPE,value` or a logical rule again, or null when it holds a type that this cannot evaluate */
-function parseSubRule(text: string): Condition | null {
+function parseSubRule(text: string, context: ParseContext): Condition | null {
   const comma = text.indexOf(',');
   if (comma === -1) {
     throw new SyntaxError('not a rule');
   }
   const type = text.slice(0, comma);
   const rest = text.slice(comma + 1);
-  if (type === 'AND' || type === 'OR' || type === 'NOT') {
-    return parseLogical(type, rest);
+  context.types.add(type);
+  if (isLogicalType(type)) {
+    return parseLogical(type, rest, context);
   }
-  return buildCondition(type, valueOf(rest));
+
+  const condition = buildCondition(type, valueOf(rest));
+  if (condition === null) {
+    context.unsupported.push(type);
+  }
+  return condition;
 }
 
-function parseLogical(type: 'AND' | 'OR' | 'NOT', rest: string): Condition | null {
-  const subRules = splitSubRules(rest).map(parseSubRule);
+function parseLogical(type: LogicalType, rest: string, context: ParseContext): Condition | null {
+  // every sub-rule is read, also when an earlier one cannot be evaluated: the types of all of them are wanted
+  const subRules = splitSubRules(rest).map(subRule => parseSubRule(subRule, context));
   if (subRules.includes(null)) {
     return null;
   }
@@ -435,4 +472,45 @@ function parseLogical(type: 'AND' | 'OR' | 'NOT', rest: string): Condition | nul
       }
       return request => !conditions[0](request);
   }
+}
+
+/**
+ * A rule that is not a logical one: a plain rule of a file, or one that stands inside an AND, an OR or a NOT, and
+ * the options that follow its value (`no-resolve`)
+ */
+export interface RuleLeaf {
+  type: string,
+  value: string,
+  options: string[]
+}
+
+/**
+ * The rules that a rule is made of: itself, or for AND, OR and NOT the rules inside it, to any depth. A check that
+ * has something to say about every DOMAIN or every IP-CIDR of a file has to look inside the logical rules as well,
+ * since a rule that stands there is a rule of the file.
+ */
+export function leavesOf(text: string): RuleLeaf[] {
+  const comma = text.indexOf(',');
+  if (comma === -1) {
+    throw new SyntaxError('not a rule');
+  }
+  const type = text.slice(0, comma);
+  const rest = text.slice(comma + 1);
+
+  if (isLogicalType(type)) {
+    const leaves: RuleLeaf[] = [];
+    const subRules = splitSubRules(rest);
+    for (let i = 0, len = subRules.length; i < len; i++) {
+      appendArrayInPlace(leaves, leavesOf(subRules[i]));
+    }
+    return leaves;
+  }
+
+  const value = valueOf(rest);
+  const afterValue = rest.indexOf(',');
+  return [{
+    type,
+    value,
+    options: afterValue === -1 ? [] : rest.slice(afterValue + 1).split(',').map(option => option.trim())
+  }];
 }

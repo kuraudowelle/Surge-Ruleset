@@ -182,3 +182,47 @@ export function parseCheckTable(markdown: string): CheckRow[] {
     };
   });
 }
+
+/** A ruleset of addresses for one region, like `ip/stream_us.conf`: not `ip/stream.conf`, which has the addresses of all of them */
+export const rRegionalIpRuleset = /^ip\/stream_[\w-]+\.conf$/;
+
+/**
+ * What the Rule section has to say about the rulesets of addresses of the regions that have addresses. A region that has
+ * none is left out of the section, and that is right: there is nothing in it to route. A region that gets some is a
+ * service that is reached by its address, and it goes into the section like the other rulesets of its region: active, in
+ * front of `ip/stream.conf`, which has the addresses of all the services, and on the policy that its region has for
+ * hostnames (the one of `non_ip/stream_<region>.conf`, or the one of `ip/stream.conf` when the section has no ruleset of
+ * hostnames for it).
+ *
+ * `sizes` is the number of rules of each ruleset of addresses of a region that is published. It gives the problems, one
+ * line for each, or nothing when there are none.
+ */
+export function regionalIpProblems(entries: readonly RuleSectionEntry[], sizes: ReadonlyMap<string, number>): string[] {
+  const problems: string[] = [];
+  const all = entries.find(entry => entry.ruleset === 'ip/stream.conf' && !entry.optional);
+
+  sizes.forEach((size, name) => {
+    if (size === 0) {
+      return;
+    }
+
+    const entry = entries.find(candidate => candidate.ruleset === name && !candidate.optional);
+    if (entry === undefined) {
+      const optional = entries.some(candidate => candidate.ruleset === name);
+      problems.push(`${name} has ${size} rules, and ${optional ? 'the Rule section has it as a comment' : 'is not in the Rule section'}: it goes in front of ip/stream.conf, switched on`);
+      return;
+    }
+
+    if (all !== undefined && entries.indexOf(entry) > entries.indexOf(all)) {
+      problems.push(`${name} has ${size} rules, and stands behind ip/stream.conf, which has its addresses as well: it goes in front of it`);
+    }
+
+    const hostnames = entries.find(candidate => candidate.ruleset === name.replace('ip/', 'non_ip/') && !candidate.optional);
+    const expected = hostnames?.policy ?? all?.policy;
+    if (expected !== undefined && entry.policy !== expected) {
+      problems.push(`${name} has ${size} rules, and is on ${entry.policy}, and its region is on ${expected}${hostnames === undefined ? ' (the policy of ip/stream.conf)' : ` (the policy of ${hostnames.ruleset})`}`);
+    }
+  });
+
+  return problems;
+}
