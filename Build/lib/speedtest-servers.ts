@@ -37,6 +37,8 @@ export interface LibreSpeedServerInfo {
 
 const SPEEDTEST_NET_SERVERS_API = 'https://www.speedtest.net/api/js/servers';
 const LIBRESPEED_SERVERS_LIST = 'https://librespeed.org/backend-servers/servers.php';
+/** The configuration that `networkQuality` of macOS and iOS downloads to find what to test against (Apple documents it in `man networkQuality`, as the default of `-C`) */
+export const APPLE_NETWORK_QUALITY_CONFIG = 'https://mensura.cdn-apple.com/api/v1/gm/config';
 
 /**
  * The Speedtest API matches a term against the city, the country and the sponsor of a server, and returns
@@ -139,7 +141,44 @@ export function extractLibrespeedHostnames(servers: ReadonlyArray<Partial<LibreS
   return hostnames;
 }
 
-async function fetchJsonArray<T>(url: string): Promise<T[]> {
+/**
+ * What the configuration of `networkQuality` names: the host that the test is run against, and the hosts of the
+ * URLs that it downloads from and uploads to.
+ *
+ *     { "version": 1, "test_endpoint": "uschi5-edge-fx-040.aaplimg.com",
+ *       "urls": { "small_https_download_url": "https://mensura.cdn-apple.com/api/v1/gm/small", ... } }
+ *
+ * The endpoint is an edge that Apple picks for the caller, so it differs with where the build runs.
+ */
+export function extractAppleNetworkQualityHostnames(config: unknown): string[] {
+  if (config === null || typeof config !== 'object') {
+    throw new TypeError(APPLE_NETWORK_QUALITY_CONFIG + ' did not respond with a JSON object');
+  }
+
+  const hostnames = new Set<string>();
+
+  if ('test_endpoint' in config && typeof config.test_endpoint === 'string') {
+    const hostname = toHostname(config.test_endpoint);
+    if (hostname) {
+      hostnames.add(hostname);
+    }
+  }
+
+  if ('urls' in config && config.urls !== null && typeof config.urls === 'object') {
+    const urls: unknown[] = Object.values(config.urls);
+    for (let i = 0, len = urls.length; i < len; i++) {
+      const url = urls[i];
+      const hostname = typeof url === 'string' ? toHostname(fastUri.parse(url).host) : null;
+      if (hostname) {
+        hostnames.add(hostname);
+      }
+    }
+  }
+
+  return Array.from(hostnames);
+}
+
+async function fetchJson(url: string): Promise<unknown> {
   const res = await $$fetch(url, {
     headers: {
       // say who is asking instead of sending the default user agent of scripts
@@ -149,7 +188,11 @@ async function fetchJsonArray<T>(url: string): Promise<T[]> {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT)
   });
 
-  const data: unknown = await res.json();
+  return res.json();
+}
+
+async function fetchJsonArray<T>(url: string): Promise<T[]> {
+  const data = await fetchJson(url);
   if (!Array.isArray(data)) {
     throw new TypeError(url + ' did not respond with a JSON array');
   }
@@ -230,6 +273,20 @@ export async function fetchLibrespeedHostnames(): Promise<string[]> {
     return hostnames;
   } catch (e) {
     console.warn(picocolors.yellow('[librespeed]'), 'can not get the backend servers,', extractErrorMessage(e));
+    return [];
+  }
+}
+
+/**
+ * Never rejects either, for the same reason.
+ */
+export async function fetchAppleNetworkQualityHostnames(): Promise<string[]> {
+  try {
+    const hostnames = extractAppleNetworkQualityHostnames(await fetchJson(APPLE_NETWORK_QUALITY_CONFIG));
+    console.log(picocolors.gray('[networkQuality]'), `${hostnames.length} hostnames`);
+    return hostnames;
+  } catch (e) {
+    console.warn(picocolors.yellow('[networkQuality]'), 'can not get the configuration,', extractErrorMessage(e));
     return [];
   }
 }

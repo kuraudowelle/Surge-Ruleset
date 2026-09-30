@@ -2,7 +2,7 @@ import { describe, it } from 'mocha';
 import { expect } from 'earl';
 
 import { DomainListCommunityResolver, parseDomainListCommunity } from './domain-list-community';
-import type { DomainListLoader } from './domain-list-community';
+import type { DomainListLoader, DomainListResolveOptions } from './domain-list-community';
 
 describe('parseDomainListCommunity', () => {
   it('reads what https://github.com/v2fly/domain-list-community/blob/master/data/telegram looks like', () => {
@@ -170,6 +170,17 @@ async function resolve(lists: Record<string, string[]>, list: string) {
     skipped: sorted(resolved.skipped),
     lists: resolved.lists
   };
+}
+
+function resolveWith(lists: Record<string, string[]>, list: string, options: DomainListResolveOptions) {
+  const loader = createLoader(lists);
+  return new DomainListCommunityResolver(loader.load).resolve(list, options).then(resolved => ({
+    suffixes: sorted(resolved.suffixes),
+    full: sorted(resolved.full),
+    skipped: sorted(resolved.skipped),
+    lists: resolved.lists,
+    loaded: loader.loaded
+  }));
 }
 
 describe('DomainListCommunityResolver', () => {
@@ -392,5 +403,56 @@ describe('DomainListCommunityResolver', () => {
     expect(suffixes).toEqual(sorted(['deepmind.com', 'antigravity.google', 'antigravity-unleash.goog']));
     expect(full).toEqual(['antigravity-pa.googleapis.com']);
     expect(lists).toEqual(['google-gemini', 'google-deepmind']);
+  });
+
+  describe('options', () => {
+    const apple = {
+      apple: ['include:apple-dev', 'apple.com', 'apple.com.cn @cn', 'full:gspe-cn.apple.com @cn', 'full:gspe.apple.com'],
+      'apple-dev': ['developer.apple.com', 'developer.apple.cn @cn']
+    };
+
+    it('takes only the entries that have the attribute that is asked for, also the ones of an included list (`geosite:apple@cn`)', async () => {
+      const { suffixes, full } = await resolveWith(apple, 'apple', { must: ['cn'] });
+
+      expect(suffixes).toEqual(sorted(['apple.com.cn', 'developer.apple.cn']));
+      expect(full).toEqual(['gspe-cn.apple.com']);
+    });
+
+    it('takes the rest of the list when the attribute is banned', async () => {
+      const { suffixes, full } = await resolveWith(apple, 'apple', { ban: ['cn'] });
+
+      expect(suffixes).toEqual(sorted(['apple.com', 'developer.apple.com']));
+      expect(full).toEqual(['gspe.apple.com']);
+    });
+
+    it('reads an attribute with a ! in it, which is how a list says that an entry is meant for abroad', async () => {
+      const { suffixes } = await resolveWith({
+        bilibili: ['bilibili.com', 'bilibili.tv @!cn', 'biliintl.com @!cn', 'hdslb.com @cn']
+      }, 'bilibili', { must: ['!cn'] });
+
+      expect(suffixes).toEqual(sorted(['bilibili.tv', 'biliintl.com']));
+    });
+
+    it('takes an entry without attributes only when no attribute is asked for, like an inclusion does', async () => {
+      const lists = { list: ['plain.example.com', 'cn.example.com @cn'] };
+
+      expect((await resolveWith(lists, 'list', { must: ['cn'] })).suffixes).toEqual(['cn.example.com']);
+      expect((await resolveWith(lists, 'list', { ban: ['cn'] })).suffixes).toEqual(['plain.example.com']);
+      expect((await resolveWith(lists, 'list', {})).suffixes).toEqual(sorted(['plain.example.com', 'cn.example.com']));
+    });
+
+    it('does not report what the attributes left out as skipped, but still leaves out what is marked @ads', async () => {
+      const { suffixes, skipped } = await resolveWith({
+        list: ['a.example.com @cn', 'b.example.com', 'ads.example.com @cn @ads', 'other-ads.example.com @ads']
+      }, 'list', { must: ['cn'] });
+
+      expect(suffixes).toEqual(['a.example.com']);
+      expect(skipped).toEqual(['ads.example.com @cn @ads']);
+    });
+
+    it('refuses what is not an attribute', async () => {
+      await expect(resolveWith(apple, 'apple', { must: ['c n'] })).toBeRejectedWith('Invalid attribute: c n');
+      await expect(resolveWith(apple, 'apple', { ban: ['@cn'] })).toBeRejectedWith('Invalid attribute: @cn');
+    });
   });
 });

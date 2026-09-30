@@ -7,6 +7,7 @@ import path from 'node:path';
 
 import {
   SPEEDTEST_NET_REGIONS,
+  extractAppleNetworkQualityHostnames,
   extractLibrespeedHostnames,
   extractSpeedtestNetHostnames,
   fetchSpeedtestNetHostnames,
@@ -105,6 +106,39 @@ describe('extractLibrespeedHostnames', () => {
       { server: '' },
       {}
     ])).toEqual(['librespeed.example.org', 'lg.example.net']);
+  });
+});
+
+describe('extractAppleNetworkQualityHostnames', () => {
+  it('reads what https://mensura.cdn-apple.com/api/v1/gm/config looks like', () => {
+    expect(extractAppleNetworkQualityHostnames({
+      version: 1,
+      test_endpoint: 'uschi5-edge-fx-040.aaplimg.com',
+      urls: {
+        small_https_download_url: 'https://mensura.cdn-apple.com/api/v1/gm/small',
+        large_https_download_url: 'https://mensura.cdn-apple.com/api/v1/gm/large',
+        https_upload_url: 'https://mensura.cdn-apple.com/api/v1/gm/slurp',
+        small_download_url: 'https://mensura.cdn-apple.com/api/v1/gm/small'
+      }
+    })).toEqual(['uschi5-edge-fx-040.aaplimg.com', 'mensura.cdn-apple.com']);
+  });
+
+  it('takes what there is when the configuration has only one of the two', () => {
+    expect(extractAppleNetworkQualityHostnames({ test_endpoint: 'Edge.Example.com' })).toEqual(['edge.example.com']);
+    expect(extractAppleNetworkQualityHostnames({ urls: { a: 'https://mensura.example.com/api' } })).toEqual(['mensura.example.com']);
+  });
+
+  it('skips what is not a hostname: an IP, a value that is not text, an empty value', () => {
+    expect(extractAppleNetworkQualityHostnames({
+      test_endpoint: '203.0.113.7',
+      urls: { a: 'https://203.0.113.7/api', b: 42, c: null, d: '' }
+    })).toEqual([]);
+    expect(extractAppleNetworkQualityHostnames({ test_endpoint: 42, urls: 'https://mensura.example.com/' })).toEqual([]);
+  });
+
+  it('refuses an answer that is not a JSON object', () => {
+    expect(() => extractAppleNetworkQualityHostnames(null)).toThrow('did not respond with a JSON object');
+    expect(() => extractAppleNetworkQualityHostnames('<html>')).toThrow('did not respond with a JSON object');
   });
 });
 
