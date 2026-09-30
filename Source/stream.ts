@@ -1,6 +1,38 @@
+/**
+ * A list of the community (https://github.com/v2fly/domain-list-community/tree/master/data), and what is taken of it.
+ * The options are the ones of the build of the lists: `must` takes the entries that have an attribute (`@!cn`
+ * marks what is meant for abroad), `ban` leaves them out, `skip` leaves an included list out, and `select`
+ * keeps the hostnames that it says yes to.
+ */
+export interface StreamList {
+  list: string,
+  must?: string[],
+  ban?: string[],
+  skip?: string[],
+  select?: (hostname: string) => boolean
+}
+
+/**
+ * A service has two kinds of data, and its rulesets are made of both:
+ *
+ * - what the build gets on its own, on every build, which follows its sources: the lists of the community (`lists`)
+ *   and the addresses that the owner of the service announces (`asns`)
+ * - what a person collected (`rules`, `ip`), which stays as it is written: the automatic update never changes it.
+ *   It is what covers the domains that nobody lists, and the `USER-AGENT` and `PROCESS-NAME` rules of apps,
+ *   which no list carries
+ *
+ * A service that has no list of its own is collected by hand alone: the lists of a whole company (Fox, Naver, CBS,
+ * NBCUniversal, TVB) would send all of the company to the policy of a streaming service.
+ */
 export interface StreamService {
   name: string,
-  rules: string[],
+  /** Automatic: the lists that hold the domains of the service, a name alone is the whole list */
+  lists?: Array<string | StreamList>,
+  /** Automatic: the autonomous systems that announce the addresses of the service, which is what its owner routes to itself */
+  asns?: number[],
+  /** Collected by hand: rules as a ruleset has them, merged with what the lists give */
+  rules?: string[],
+  /** Collected by hand: addresses, merged with what the autonomous systems announce */
   ip?: {
     v4: string[],
     v6: string[]
@@ -27,6 +59,8 @@ const ALL4: StreamService = {
 
 const AMAZON_PRIME_VIDEO: StreamService = {
   name: 'Amazon Prime Video',
+  // the list of Amazon has all of Amazon (AWS, shopping, ...), this one is the video
+  lists: [{ list: 'primevideo', ban: ['cn'] }],
   rules: [
     'DOMAIN,avodmp4s3ww-a.akamaihd.net',
     'DOMAIN,d1v5ir2lpwr8os.cloudfront.net',
@@ -66,6 +100,7 @@ const AMAZON_PRIME_VIDEO: StreamService = {
 
 const ABEMA_TV: StreamService = {
   name: 'AbemaTV',
+  lists: ['abema'],
   rules: [
     // Pure Front-End detection https://ds-linear-abematv.akamaized.net/region check HTTP 200
     'DOMAIN,ds-linear-abematv.akamaized.net',
@@ -89,6 +124,7 @@ const ABEMA_TV: StreamService = {
 
 const APPLE_TV: StreamService = {
   name: 'Apple TV',
+  lists: ['apple-tvplus'],
   rules: [
     'DOMAIN,ocvideo.apple.com',
     'DOMAIN,linear.tv.apple.com',
@@ -114,6 +150,7 @@ const APPLE_MUSIC_TV: StreamService = {
 
 const BAHAMUT: StreamService = {
   name: 'Bahamut',
+  lists: ['bahamut'],
   rules: [
     // 'DOMAIN,bahamut.akamaized.net', // Akamai based CDN, no geoblock at all
     'DOMAIN,gamer-cds.cdn.hinet.net',
@@ -131,6 +168,7 @@ const BAHAMUT: StreamService = {
 
 const BBC: StreamService = {
   name: 'BBC',
+  lists: ['bbc'],
   rules: [
     'DOMAIN-SUFFIX,tvlicensing.co.uk',
     'DOMAIN-KEYWORD,bbcfmt',
@@ -146,6 +184,8 @@ const BBC: StreamService = {
 
 const BILIBILI_INTL: StreamService = {
   name: 'Bilibili International',
+  // the rest of the list is the Bilibili of mainland China
+  lists: [{ list: 'bilibili', must: ['!cn'] }],
   rules: [
     'DOMAIN-SUFFIX,biliintl.com',
     'DOMAIN,apm-misaka.biliapi.net',
@@ -167,6 +207,7 @@ export const CRACKLE = {
 
 const DAZN: StreamService = {
   name: 'DAZN',
+  lists: ['dazn'],
   rules: [
     'DOMAIN,d151l6v8er5bdm.cloudfront.net',
     'DOMAIN,d1sgwhnao7452x.cloudfront.net',
@@ -189,6 +230,7 @@ const DAZN: StreamService = {
 
 const DEEZER: StreamService = {
   name: 'Deezer',
+  lists: ['deezer'],
   rules: [
     'DOMAIN-SUFFIX,deezer.com',
     'DOMAIN-SUFFIX,dzcdn.net',
@@ -198,6 +240,8 @@ const DEEZER: StreamService = {
 
 const DISNEY_PLUS: StreamService = {
   name: 'Disney+',
+  // with what Disney groups with it: Hulu, ESPN, Hotstar, Star+, ...
+  lists: [{ list: 'disney', ban: ['cn'] }],
   rules: [
     'DOMAIN,cdn.registerdisney.go.com',
 
@@ -213,6 +257,7 @@ const DISNEY_PLUS: StreamService = {
 
 const DISCOVERY_PLUS: StreamService = {
   name: 'Discovery+',
+  lists: ['discoveryplus'],
   rules: [
     'USER-AGENT,DPlus*',
     'USER-AGENT,discovery+*',
@@ -226,6 +271,7 @@ const DISCOVERY_PLUS: StreamService = {
 
 const DMM: StreamService = {
   name: 'DMM',
+  lists: ['dmm'],
   rules: [
     'DOMAIN-SUFFIX,dmm.co.jp',
     'DOMAIN-SUFFIX,dmm.com',
@@ -248,8 +294,9 @@ const ENCORE_TVB: StreamService = {
   ]
 };
 
-const ENCORE_TVB_JP_TVER: StreamService = {
-  name: 'encoreTVB JP',
+const TVER: StreamService = {
+  name: 'TVer',
+  lists: ['tver'],
   rules: [
     'DOMAIN-SUFFIX,tver.jp'
   ]
@@ -281,6 +328,7 @@ const FOX_PLUS: StreamService = {
 
 const HBO: StreamService = {
   name: 'HBO Go / HBO Now / HBO Max / Max',
+  lists: ['hbo'],
   rules: [
     'DOMAIN-SUFFIX,hbo.com',
     'DOMAIN-SUFFIX,hbogo.com',
@@ -341,6 +389,7 @@ const HIMALAYA_FM: StreamService = {
 
 const HULU: StreamService = {
   name: 'Hulu',
+  lists: ['hulu'],
   rules: [
     'DOMAIN-SUFFIX,hulu.com',
     'DOMAIN-SUFFIX,hulu.tv',
@@ -384,6 +433,8 @@ const ITV: StreamService = {
 
 const IQIYI_GLOBAL: StreamService = {
   name: 'iQiYi Global',
+  // the rest of the list is the iQiyi of mainland China
+  lists: [{ list: 'iqiyi', must: ['!cn'] }],
   rules: [
     'DOMAIN-SUFFIX,iq.com',
     'DOMAIN,cache.video.iqiyi.com',
@@ -411,6 +462,7 @@ const JOOX: StreamService = {
 
 const KKBOX: StreamService = {
   name: 'KKBOX',
+  lists: ['kkbox'],
   rules: [
     'DOMAIN-SUFFIX,kfs.io',
     'DOMAIN-SUFFIX,kkbox.com',
@@ -422,6 +474,7 @@ const KKBOX: StreamService = {
 
 const KKTV: StreamService = {
   name: 'KKTV',
+  lists: ['kktv'],
   rules: [
     'DOMAIN-SUFFIX,kk.stream',
 
@@ -435,6 +488,8 @@ const KKTV: StreamService = {
 
 const LINE_TV: StreamService = {
   name: 'Line TV',
+  // the list is LINE, the messenger, which has no part in this
+  lists: [{ list: 'line', select: hostname => hostname.includes('linetv') }],
   rules: [
     'DOMAIN,d3c7rimkq79yfu.cloudfront.net',
     'DOMAIN-SUFFIX,linetv.tw',
@@ -445,6 +500,7 @@ const LINE_TV: StreamService = {
 
 const LITV: StreamService = {
   name: 'LiTV',
+  lists: ['litv'],
   rules: [
     'DOMAIN,litvfreemobile-hichannel.cdn.hinet.net',
     'DOMAIN,ntdfreepc-tgc.cdn.hinet.net',
@@ -466,6 +522,7 @@ const MY5: StreamService = {
 
 const MYTV_SUPER: StreamService = {
   name: 'myTV Super',
+  lists: ['mytvsuper'],
   rules: [
     'DOMAIN-SUFFIX,mytvsuper.com',
     'DOMAIN-SUFFIX,tvb.com',
@@ -489,6 +546,7 @@ const NAVER_TV: StreamService = {
 
 const NICONICO: StreamService = {
   name: 'niconico',
+  lists: ['niconico'],
   rules: [
     'DOMAIN-SUFFIX,dmc.nico',
     'DOMAIN-SUFFIX,nicovideo.jp',
@@ -502,6 +560,9 @@ const NICONICO: StreamService = {
 
 const NETFLIX: StreamService = {
   name: 'Netflix',
+  lists: ['netflix'],
+  // Netflix Streaming Services
+  asns: [2906],
   ip: {
     v4: [
       '23.246.18.0/23',
@@ -546,8 +607,9 @@ const NETFLIX: StreamService = {
   ]
 };
 
-const NHK_PLUS: StreamService = {
-  name: 'NHK Plus',
+const NHK: StreamService = {
+  name: 'NHK',
+  lists: ['nhk'],
   rules: [
     // Pure Front-End detection just like AbemaTV: https://location-plus.nhk.jp/geoip/area.json
     'DOMAIN-SUFFIX,location-plus.nhk.jp'
@@ -587,6 +649,7 @@ const PARAMOUNT: StreamService = {
 
 const PBS: StreamService = {
   name: 'PBS',
+  lists: ['pbs'],
   rules: [
     'USER-AGENT,PBS*',
     'DOMAIN-SUFFIX,pbs.org'
@@ -611,6 +674,7 @@ const PANDORA: StreamService = {
 
 const PORNHUB: StreamService = {
   name: 'Pornhub',
+  lists: ['pornhub'],
   rules: [
     'DOMAIN-SUFFIX,phprcdn.com',
     'DOMAIN-SUFFIX,pornhub.com',
@@ -620,6 +684,7 @@ const PORNHUB: StreamService = {
 
 const SOUNDCLOUD: StreamService = {
   name: 'SoundCloud',
+  lists: ['soundcloud'],
   rules: [
     // 'DOMAIN-SUFFIX,sndcdn.com',
     'DOMAIN-SUFFIX,soundcloud.com',
@@ -630,6 +695,7 @@ const SOUNDCLOUD: StreamService = {
 
 const SPOTIFY: StreamService = {
   name: 'Spotify',
+  lists: ['spotify'],
   ip: {
     v4: ['35.186.224.47/32'],
     v6: []
@@ -678,6 +744,7 @@ const TAIWAN_GOOD: StreamService = {
 
 const TIDAL: StreamService = {
   name: 'TIDAL',
+  lists: ['tidal'],
   rules: [
     'USER-AGENT,TIDAL*',
     'DOMAIN-SUFFIX,tidal.com',
@@ -710,6 +777,7 @@ const TIKTOK: StreamService = {
 
 const TWITCH: StreamService = {
   name: 'Twitch',
+  lists: ['twitch'],
   rules: [
     'DOMAIN-SUFFIX,jtvnw.net',
     'DOMAIN-SUFFIX,ttvnw.net',
@@ -721,8 +789,9 @@ const TWITCH: StreamService = {
   ]
 };
 
-const VIUTV: StreamService = {
-  name: 'ViuTV',
+const VIU: StreamService = {
+  name: 'Viu / ViuTV',
+  lists: ['viu'],
   rules: [
     'DOMAIN,api.viu.now.com',
     'DOMAIN,d1k2us671qcoau.cloudfront.net',
@@ -769,6 +838,7 @@ const YOUTUBE_MUSIC: StreamService = {
 
 const SHOWTIME: StreamService = {
   name: 'SHOWTIME',
+  lists: ['showtimeanytime'],
   rules: [
     'DOMAIN-SUFFIX,sho.com',
     'DOMAIN-SUFFIX,showtime.com'
@@ -817,6 +887,7 @@ const MANGAFOX: StreamService = {
 
 const TUBI_TV: StreamService = {
   name: 'Tubi TV',
+  lists: ['tubi'],
   rules: [
     'DOMAIN,tubi.tv',
     'DOMAIN,www.tubi.tv',
@@ -831,6 +902,7 @@ const TUBI_TV: StreamService = {
 
 const PLUTO_TV: StreamService = {
   name: 'Pluto TV',
+  lists: ['plutotv'],
   rules: [
     'DOMAIN,pluto.tv',
     'DOMAIN,www.pluto.tv'
@@ -844,21 +916,21 @@ export const ALL: StreamService[] = [
   CRACKLE,
   DAZN, DEEZER, DISNEY_PLUS, DISCOVERY_PLUS, DMM,
   ENCORE_TVB,
-  ENCORE_TVB_JP_TVER,
+  TVER,
   FRIDAY_TW, FOX_NOW, FOX_PLUS,
-  HBO, HBO_ASIA, HIMALAYA_FM, HULU, HWTV,
+  HBO, HBO_ASIA, HIMALAYA_FM, HULU, HULU_JP, HWTV,
   IQIYI_GLOBAL, ITV,
   JOOX,
   KKBOX,
   KKTV,
-  LINE_TV,
+  LINE_TV, LITV,
   MANGAFOX, MY5, MYTV_SUPER,
-  NETFLIX, NAVER_TV, NICONICO, NHK_PLUS, NOW_E,
+  NETFLIX, NAVER_TV, NICONICO, NHK, NOW_E,
   OVERCAST_FM,
   PARAMOUNT, PBS, PEACOCK, PANDORA, PORNHUB, PLUTO_TV,
   SOUNDCLOUD, SHOWTIME, SPOTIFY,
   TAIWAN_GOOD, TIDAL, TIKTOK, TVB_ANYWHERE, TWITCH, TUBI_TV,
-  VIUTV, VUDU,
+  VIU, VUDU,
   WETV,
   YOUTUBE, YOUTUBE_MUSIC
 ];
@@ -936,7 +1008,7 @@ export const EU: StreamService[] = [
 
 export const HK: StreamService[] = [
   NOW_E,
-  VIUTV,
+  VIU,
   MYTV_SUPER,
   HBO_ASIA,
   BILIBILI_INTL
@@ -967,8 +1039,8 @@ export const JP: StreamService[] = [
   // Paravi
   // unext
   HULU_JP,
-  ENCORE_TVB_JP_TVER,
-  NHK_PLUS
+  TVER,
+  NHK
   // GYAO!
   // wowow
   // VideoMarket

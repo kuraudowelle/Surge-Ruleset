@@ -227,6 +227,26 @@ export interface ResolvedDomainList extends DomainListCommunityRules {
   lists: string[]
 }
 
+/** What to take from a list, the way the community tools let a config ask for `geosite:list@attribute` */
+export interface DomainListResolveOptions {
+  /** Take only the entries that have all of these attributes: `['cn']` is `list @cn` */
+  must?: readonly string[],
+  /** Leave out the entries that have one of these attributes: `['cn']` is `list @-cn` */
+  ban?: readonly string[]
+}
+
+function normalizeOptionNames(names: readonly string[] | undefined, what: string, pattern: RegExp): string[] {
+  const normalized: string[] = [];
+  for (let i = 0, len = names?.length ?? 0; i < len; i++) {
+    const name = names![i].toLowerCase();
+    if (!pattern.test(name)) {
+      throw new TypeError(`Invalid ${what}: ${names![i]}`);
+    }
+    normalized.push(name);
+  }
+  return normalized;
+}
+
 /**
  * Resolves a list of https://github.com/v2fly/domain-list-community the way its own build does
  * (https://github.com/v2fly/domain-list-community/blob/master/main.go), so that a list which
@@ -235,6 +255,10 @@ export interface ResolvedDomainList extends DomainListCommunityRules {
  *     include:youtube             everything in `youtube`, and in the lists it includes
  *     include:youtube @cn         only the entries that have the attribute `@cn`
  *     include:youtube @-ads       only the entries that do not have the attribute `@ads`
+ *
+ * What is asked for can be narrowed down the same way, see {@link DomainListResolveOptions}:
+ * `must: ['cn']` is what a config of a community tool calls `geosite:apple@cn`, and `ban: ['cn']`
+ * is the rest of the list.
  *
  * Entries marked `@ads`, `keyword:` and `regexp:` entries and malformed lines are left out, see
  * {@link parseDomainListCommunity}.
@@ -335,11 +359,15 @@ export class DomainListCommunityResolver {
     return lists;
   }
 
-  async resolve(list: string): Promise<ResolvedDomainList> {
+  async resolve(list: string, options: DomainListResolveOptions = {}): Promise<ResolvedDomainList> {
     const name = list.toLowerCase();
     if (!rListName.test(name)) {
       throw new TypeError(`Invalid domain list name: ${list}`);
     }
+
+    const must = normalizeOptionNames(options.must, 'attribute', rAttribute);
+    const ban = normalizeOptionNames(options.ban, 'attribute', rAttribute);
+    const filter: DomainListInclusion = { list: name, must, ban };
 
     await this.loadInclusions(name, new Set(), null);
 
@@ -356,6 +384,10 @@ export class DomainListCommunityResolver {
     }
 
     for (const entry of this.resolveEntries(name, []).values()) {
+      // left out by the options, so not something that was skipped
+      if (!isIncluded(entry, filter)) {
+        continue;
+      }
       if (isAdEntry(entry)) {
         skipped.add(entry.line);
       } else {

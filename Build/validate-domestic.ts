@@ -8,7 +8,6 @@ import { HostnameSmolTrie } from 'hntrie/smol';
 import { domainToASCII } from 'node:url';
 import tldts from 'tldts-experimental';
 import { DOMESTICS } from '../Source/non_ip/domestic';
-import { DOMESTIC_CDN } from '../Source/non_ip/domestic_cdn';
 
 export async function parseDomesticList() {
   const allChinaDomains = new Set<string>(await parseFelixDnsmasqFromResp(await $$fetch('https://raw.githubusercontent.com/felixonmars/dnsmasq-china-list/master/accelerated-domains.china.conf')));
@@ -29,10 +28,6 @@ export async function parseDomesticList() {
 
   // await Promise.all([
   await runAgainstSourceFile(
-    path.resolve(SOURCE_DIR, 'non_ip/domestic_cdn.conf'),
-    callback
-  );
-  await runAgainstSourceFile(
     path.resolve(SOURCE_DIR, 'non_ip/domestic.conf'),
     callback
   );
@@ -41,7 +36,7 @@ export async function parseDomesticList() {
     callback
   );
 
-  [DOMESTICS, DOMESTIC_CDN].flatMap(item => Object.values(item)).forEach(domestic => {
+  Object.values(DOMESTICS).forEach(domestic => {
     domestic.domains.forEach(domain => {
       switch (domain[0]) {
         case '+':
