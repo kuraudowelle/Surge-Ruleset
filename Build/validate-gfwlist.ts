@@ -131,7 +131,7 @@ export async function parseGfwList() {
     runAgainstSourceFile(path.join(SOURCE_DIR, 'non_ip/global.conf'), callback, 'ruleset', keywordSet),
     // runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip/domestic.conf'), callback, 'ruleset', keywordSet),
     runAgainstSourceFile(path.join(SOURCE_DIR, 'non_ip/reject.conf'), callback, 'ruleset', keywordSet),
-    runAgainstSourceFile(path.join(SOURCE_DIR, 'non_ip/telegram.conf'), callback, 'ruleset', keywordSet),
+    runAgainstSourceFile(path.join(OUTPUT_SURGE_DIR, 'non_ip/telegram.conf'), callback, 'ruleset', keywordSet),
     runAgainstSourceFile(path.resolve(OUTPUT_SURGE_DIR, 'non_ip/stream.conf'), callback, 'ruleset', keywordSet),
     runAgainstSourceFile(path.resolve(SOURCE_DIR, 'non_ip/ai.conf'), callback, 'ruleset', keywordSet),
     runAgainstSourceFile(path.resolve(SOURCE_DIR, 'non_ip/microsoft.conf'), callback, 'ruleset', keywordSet),
