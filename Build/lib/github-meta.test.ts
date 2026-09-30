@@ -114,8 +114,8 @@ describe('parseGitHubMeta', () => {
   });
 
   it('keeps the wildcards on the domains of GitHub and leaves out the ones on the domains of other companies, which the API lists as well', () => {
-    // The wildcards that the API had when it was first built (the CI run of the pull request), and the keys they most likely came from:
-    // GitHub lists what its services need, the web client of Codespaces is Visual Studio Code, which needs a lot of Microsoft
+    // The wildcards that the API had when it was first built (the CI run of the pull request), which only logged the patterns:
+    // the keys that they are in here are a guess, and do not matter to what is kept
     const { suffixes, skipped } = parseGitHubMeta(createMeta({
       domains: {
         website: ['*.github.com', '*.githubassets.com', '*.githubusercontent.com', '*.github.io'],

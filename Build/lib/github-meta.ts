@@ -38,10 +38,11 @@ const IP_KEYS = ['web', 'api', 'git', 'pages', 'packages'] as const;
  * github.io, ...) and its container registry. What is not one of those is somebody else's, however much of it GitHub needs.
  *
  * GitHub lists what its services need, for the networks that have to allow them, and that is more than what
- * is GitHub's: the web client of Codespaces is Visual Studio Code, which needs a lot of Microsoft's and of Azure's. Allowing
- * *.windows.net is what a firewall does. A ruleset that sends everything below it to the policy of GitHub would take every
- * storage account, virtual machine and database that anybody has on Azure with it. This is on the safe side: a domain of
- * GitHub that has another name is left out, and is said so, until it is added here.
+ * is GitHub's: it has wildcards on domains of Microsoft and of Azure (*.visualstudio.com, which GitHub's documentation of
+ * Codespaces says to allow, is one of them). Allowing *.windows.net is what a firewall does. A ruleset that sends everything
+ * below it to the policy of GitHub would take every storage account, virtual machine and database that anybody has on
+ * Azure with it. This is on the safe side: a domain of GitHub that has another name is left out, and is said so, until
+ * it is added here.
  */
 function isOwnedByGitHub(domain: string) {
   const registrable = getDomain(domain, looseTldtsOpt);
