@@ -26,12 +26,17 @@ export type TreeTypeArray = TreeType[];
 /**
  * The files and directories below a directory. It resolves when the whole tree is read: every walk of a directory waits
  * for the walks of the directories below it.
+ *
+ * A walk starts the walks below it after it has read its directory to the end, all together, and not one by one as it
+ * reads: a promise that is made in the loop has nothing that waits for it until the loop is over, so a directory that
+ * fails in the meantime is an unhandled rejection (which ends a Node process), and so is one that was started when the
+ * read of the parent fails. Started together, every one of them has its handler at once, and a second failure has one too.
  */
 export async function treeDir(rootPath: string): Promise<TreeTypeArray> {
   const tree: TreeTypeArray = [];
 
   const walk = async (dir: string, node: TreeTypeArray, dirRelativeToRoot = ''): Promise<void> => {
-    const walks: Array<Promise<void>> = [];
+    const subdirectories: Array<[fullPath: string, children: TreeTypeArray, relativeToRoot: string]> = [];
 
     for await (const child of await fsp.opendir(dir)) {
       // Ignore hidden files
@@ -50,7 +55,7 @@ export async function treeDir(rootPath: string): Promise<TreeTypeArray> {
           children: []
         };
         node.push(newNode);
-        walks.push(walk(childFullPath, newNode.children, childRelativeToRoot));
+        subdirectories.push([childFullPath, newNode.children, childRelativeToRoot]);
         continue;
       }
       if (child.isFile()) {
@@ -63,7 +68,7 @@ export async function treeDir(rootPath: string): Promise<TreeTypeArray> {
       }
     }
 
-    await Promise.all(walks);
+    await Promise.all(subdirectories.map(([fullPath, children, relativeToRoot]) => walk(fullPath, children, relativeToRoot)));
   };
 
   await walk(rootPath, tree);
