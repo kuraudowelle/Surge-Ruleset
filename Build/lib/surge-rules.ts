@@ -26,8 +26,9 @@ import { getCidrVersion } from './cidr-lines';
  *   AND, OR, NOT                                             over the rules above, and over each other, to any depth
  *
  * A rule inside an AND, an OR or a NOT is read as strictly as one that stands by itself, wherever it stands: a rule
- * that is not written as a rule, a range that is not a range, or a range of the wrong family is an error, and a type
- * that is not evaluated is counted, and is in `types` as well.
+ * that is not written as a rule, a range that is not a range, a range of the wrong family, or an option that the rule
+ * does not take is an error, and a type that is not evaluated is counted, and is in `types` as well. The options are
+ * the ones of `optionProblem`: `no-resolve` on a rule for an address, and no other.
  *
  * What it does not evaluate. A rule of a type that it cannot evaluate never matches, and `RuleSet.unsupported` says
  * how many there are of each type (in a logical rule as well: the rule that holds it never matches), so that a test can
@@ -171,7 +172,7 @@ export class RuleSet {
       return;
     }
 
-    const value = valueOf(rest);
+    const { value } = readCheckedLeaf(type, rest);
     switch (type) {
       case 'DOMAIN':
         this.exact.set(value.toLowerCase(), line);
@@ -289,6 +290,78 @@ function valueOf(rest: string) {
     throw new SyntaxError('no value');
   }
   return value;
+}
+
+/** Why an option that a rule cannot have is refused, for the ones that have a reason of their own */
+const WHY_NOT_AN_OPTION: ReadonlyMap<string, string> = new Map([
+  ['', 'that is a comma at the end of the rule'],
+  ['pre-matching', 'a ruleset file cannot have it'],
+  ['extended-matching', 'it is valid in Surge, and the simulation does not model it']
+]);
+
+/** The options that a rule of a type takes in a ruleset file, as far as the simulation goes: see {@link optionProblem} */
+const OPTIONS_OF_TYPE: ReadonlyMap<string, readonly string[]> = new Map([
+  ['DOMAIN', []], ['DOMAIN-SUFFIX', []], ['DOMAIN-KEYWORD', []], ['DOMAIN-WILDCARD', []],
+  ['PROCESS-NAME', []], ['USER-AGENT', []], ['PROTOCOL', []], ['DEST-PORT', []], ['SRC-IP', []],
+  ['IP-CIDR', ['no-resolve']], ['IP-CIDR6', ['no-resolve']], ['IP-ASN', ['no-resolve']], ['GEOIP', ['no-resolve']]
+]);
+
+/**
+ * What is wrong with the options that follow the value of a rule, or null. A rule of a ruleset file can have options on
+ * its line (https://manual.nssurge.com/rules/ruleset.html), and the simulation models one: `no-resolve`, on the rules for
+ * addresses, since it never resolves a hostname. Every other option is refused, wherever the rule stands, so that no rule
+ * is read as if the option were not there:
+ *
+ *   extended-matching   is valid in Surge, and it decides what the rule matches (the TLS SNI and the Host header, which a
+ *                       request here does not have): the simulation does not model it
+ *   pre-matching        is not allowed in a ruleset file
+ *   anything else       is not an option that a rule of the type has
+ *
+ * A type that this has no entry for is not looked at: URL-REGEX, whose regular expression can have a comma, and the types that
+ * are not known.
+ */
+export function optionProblem(type: string, options: readonly string[]): string | null {
+  const allowed = OPTIONS_OF_TYPE.get(type);
+  if (allowed === undefined) {
+    return null;
+  }
+
+  for (let i = 0, len = options.length; i < len; i++) {
+    const option = options[i];
+    if (allowed.includes(option)) {
+      continue;
+    }
+
+    const why = WHY_NOT_AN_OPTION.get(option) ?? 'it is not an option that a rule of this type has';
+    return `${type} has ${option === '' ? 'an empty option' : `the option ${option}`}, and takes ${allowed.length === 0 ? 'none' : `${allowed.join(', ')} only`}: ${why}`;
+  }
+  return null;
+}
+
+/** A rule that is not a logical one, as its type and the text after the type give it: the value, and the options after the value */
+function readLeaf(type: string, rest: string): RuleLeaf {
+  // the comma of a regular expression is not the one of an option
+  if (type === 'URL-REGEX') {
+    const value = rest.trim();
+    if (value.length === 0) {
+      throw new SyntaxError('no value');
+    }
+    return { type, value, options: [] };
+  }
+
+  const value = valueOf(rest);
+  const afterValue = rest.indexOf(',');
+  return { type, value, options: afterValue === -1 ? [] : rest.slice(afterValue + 1).split(',').map(option => option.trim()) };
+}
+
+/** {@link readLeaf}, for a rule that the simulation reads: an option that it does not take is an error */
+function readCheckedLeaf(type: string, rest: string): RuleLeaf {
+  const leaf = readLeaf(type, rest);
+  const problem = optionProblem(type, leaf.options);
+  if (problem !== null) {
+    throw new SyntaxError(problem);
+  }
+  return leaf;
 }
 
 function parsePort(value: string): (port: number) => boolean {
@@ -422,6 +495,12 @@ function splitSubRules(text: string): string[] {
   if (end === -1 || groups.length === 0) {
     throw new SyntaxError('the parentheses of a logical rule do not match');
   }
+
+  // an option of a rule stands inside the parentheses of the rule, and what follows the sub-rules is not read
+  const trailing = trimmed.slice(end + 1).trim();
+  if (trailing.length > 0) {
+    throw new SyntaxError(`a logical rule has nothing after its sub-rules, and this has ${trailing}`);
+  }
   return groups;
 }
 
@@ -446,7 +525,7 @@ function parseSubRule(text: string, context: ParseContext): Condition | null {
     return parseLogical(type, rest, context);
   }
 
-  const condition = buildCondition(type, valueOf(rest));
+  const condition = buildCondition(type, readCheckedLeaf(type, rest).value);
   if (condition === null) {
     context.unsupported.push(type);
   }
@@ -476,7 +555,7 @@ function parseLogical(type: LogicalType, rest: string, context: ParseContext): C
 
 /**
  * A rule that is not a logical one: a plain rule of a file, or one that stands inside an AND, an OR or a NOT, and
- * the options that follow its value (`no-resolve`)
+ * the options that follow its value (`no-resolve`). A URL-REGEX has its whole regular expression as its value, and no options
  */
 export interface RuleLeaf {
   type: string,
@@ -506,11 +585,5 @@ export function leavesOf(text: string): RuleLeaf[] {
     return leaves;
   }
 
-  const value = valueOf(rest);
-  const afterValue = rest.indexOf(',');
-  return [{
-    type,
-    value,
-    options: afterValue === -1 ? [] : rest.slice(afterValue + 1).split(',').map(option => option.trim())
-  }];
+  return [readLeaf(type, rest)];
 }

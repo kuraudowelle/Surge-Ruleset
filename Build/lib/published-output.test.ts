@@ -8,7 +8,7 @@ import { split0th } from 'foxts/split-nth';
 import { getCidrVersion } from './cidr-lines';
 import type { MTProtoDCConfig } from './mtproto-dc-config';
 import { INTERNAL_DIR, KNOWN_UNSUPPORTED_RULE_TYPES, listNames, readList } from './published-lists';
-import { RuleSet, SUPPORTED_RULE_TYPES, leavesOf } from './surge-rules';
+import { RuleSet, SUPPORTED_RULE_TYPES, leavesOf, optionProblem } from './surge-rules';
 import type { RuleLeaf } from './surge-rules';
 
 const BANNER = '#########################################';
@@ -28,6 +28,12 @@ interface ListFile {
 }
 
 const LOGICAL_TYPES: ReadonlySet<string> = new Set(['AND', 'OR', 'NOT']);
+
+/** A rule as it is written, and the line that it stands in when it stands inside a logical rule */
+function where(rule: RuleLeaf, text: string) {
+  const written = [rule.type, rule.value, ...rule.options].join(',');
+  return written === text ? written : `${written} (in ${text})`;
+}
 const HOSTNAME_TYPES: ReadonlySet<string> = new Set(['DOMAIN', 'DOMAIN-SUFFIX']);
 const ADDRESS_TYPES: ReadonlySet<string> = new Set(['IP-CIDR', 'IP-CIDR6', 'SRC-IP']);
 
@@ -161,7 +167,7 @@ describe('the rulesets that the build published', () => {
     expect(unknown).toEqual([]);
   });
 
-  it('has a hostname where a hostname goes: lowercase, with no wildcard, no scheme, no port and no dot at the end, inside a logical rule as well', () => {
+  it('has a hostname where a hostname goes: lowercase, with no wildcard, no scheme, no port, no dot at the end and no option, inside a logical rule as well', () => {
     const offenders: string[] = [];
     for (let i = 0, len = files.length; i < len; i++) {
       const file = files[i];
@@ -176,9 +182,13 @@ describe('the rulesets that the build published', () => {
         continue;
       }
 
+      // a hostname rule has no option: the lists have none, and the previous check took a comma for a character that a hostname
+      // does not have, which is what kept an option out. The policy of the options is the simulation's, so that a rule inside
+      // a logical rule is held to it as well, and `pre-matching`, which a ruleset file cannot have, is refused
       forEachRule(file, HOSTNAME_TYPES, (rule, line, text) => {
-        if (!rHostname.test(rule.value)) {
-          offenders.push(`${file.name}:${line}: ${rule.type},${rule.value} (in ${text})`);
+        const problem = optionProblem(rule.type, rule.options);
+        if (problem !== null || !rHostname.test(rule.value)) {
+          offenders.push(`${file.name}:${line}: ${where(rule, text)}${problem === null ? '' : `: ${problem}`}`);
         }
       });
     }
@@ -192,14 +202,14 @@ describe('the rulesets that the build published', () => {
       forEachRule(file, ADDRESS_TYPES, (rule, line, text) => {
         if (rule.type === 'SRC-IP') {
           if (getCidrVersion(rule.value) === 0) {
-            offenders.push(`${file.name}:${line}: ${rule.type},${rule.value} (in ${text})`);
+            offenders.push(`${file.name}:${line}: ${where(rule, text)}`);
           }
           return;
         }
 
-        const optionsAreValid = rule.options.length === 0 || (rule.options.length === 1 && rule.options[0] === 'no-resolve');
-        if (!optionsAreValid || getCidrVersion(rule.value) !== (rule.type === 'IP-CIDR' ? 4 : 6)) {
-          offenders.push(`${file.name}:${line}: ${[rule.type, rule.value, ...rule.options].join(',')} (in ${text})`);
+        const problem = optionProblem(rule.type, rule.options);
+        if (problem !== null || getCidrVersion(rule.value) !== (rule.type === 'IP-CIDR' ? 4 : 6)) {
+          offenders.push(`${file.name}:${line}: ${where(rule, text)}${problem === null ? '' : `: ${problem}`}`);
         }
       });
     }
