@@ -387,9 +387,16 @@ const HIMALAYA_FM: StreamService = {
   ]
 };
 
+/**
+ * Hulu Japan is not Hulu: another company runs it, and it works in Japan only. Its domains are collected here for it
+ * alone, and the list of the community for Hulu leaves them out, because that list holds one of them (hulu.jp) among
+ * the ones of Hulu.
+ */
+const HULU_JP_DOMAINS = ['happyon.jp', 'hjholdings.jp', 'hulu.jp'];
+
 const HULU: StreamService = {
   name: 'Hulu',
-  lists: ['hulu'],
+  lists: [{ list: 'hulu', select: hostname => !HULU_JP_DOMAINS.some(domain => hostname === domain || hostname.endsWith(`.${domain}`)) }],
   rules: [
     'DOMAIN-SUFFIX,hulu.com',
     'DOMAIN-SUFFIX,hulu.tv',
@@ -404,11 +411,7 @@ const HULU: StreamService = {
 
 const HULU_JP: StreamService = {
   name: 'Hulu Japan',
-  rules: [
-    'DOMAIN-SUFFIX,happyon.jp',
-    'DOMAIN-SUFFIX,hjholdings.jp',
-    'DOMAIN-SUFFIX,hulu.jp'
-  ]
+  rules: HULU_JP_DOMAINS.map(domain => `DOMAIN-SUFFIX,${domain}`)
 };
 
 const HWTV: StreamService = {
@@ -939,7 +942,6 @@ export const NORTH_AMERICA: StreamService[] = [
   FOX_NOW,
   FOX_PLUS,
   HULU, // Hulu US
-  HULU_JP,
   VUDU,
   // HBO,
   // www.nfl.com

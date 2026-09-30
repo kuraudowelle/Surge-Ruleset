@@ -1,9 +1,11 @@
 import { describe, it } from 'mocha';
 import { expect } from 'earl';
+import { nullthrow } from 'foxts/guard';
 
 import { ALL, EU, HK, JP, KR, NORTH_AMERICA, TW } from '../../Source/stream';
 import type { StreamService } from '../../Source/stream';
 import { getCidrVersion } from './cidr-lines';
+import { createCommunityLists } from './community-lists';
 
 const REGIONS: Record<string, StreamService[]> = { NORTH_AMERICA, EU, HK, TW, JP, KR };
 
@@ -15,6 +17,20 @@ const RULE_TYPES = new Set(['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN
 
 function listNameOf(list: NonNullable<StreamService['lists']>[number]) {
   return typeof list === 'string' ? list : list.list;
+}
+
+/** The domains that services have as DOMAIN-SUFFIX rules that were collected by hand */
+function suffixesOf(services: StreamService[]) {
+  const suffixes: string[] = [];
+  for (let i = 0, len = services.length; i < len; i++) {
+    const rules = services[i].rules ?? [];
+    for (let j = 0, ruleCount = rules.length; j < ruleCount; j++) {
+      if (rules[j].startsWith('DOMAIN-SUFFIX,')) {
+        suffixes.push(rules[j].slice('DOMAIN-SUFFIX,'.length));
+      }
+    }
+  }
+  return suffixes;
 }
 
 describe('the stream services', () => {
@@ -39,6 +55,21 @@ describe('the stream services', () => {
       expect({ region, missing }).toEqual({ region, missing: [] });
       expect({ region, duplicates: services.length - new Set(services).size }).toEqual({ region, duplicates: 0 });
     });
+  });
+
+  it('has a service in one region only, except HBO GO Asia, which is in Hong Kong and in Taiwan, and Hong Kong stands first', () => {
+    const regionsOf = new Map<StreamService, string[]>();
+    Object.entries(REGIONS).forEach(([region, services]) => {
+      services.forEach(service => regionsOf.set(service, [...(regionsOf.get(service) ?? []), region]));
+    });
+
+    const shared: Array<{ service: string, regions: string[] }> = [];
+    regionsOf.forEach((regions, service) => {
+      if (regions.length > 1) {
+        shared.push({ service: service.name, regions });
+      }
+    });
+    expect(shared).toEqual([{ service: 'HBO Asia', regions: ['HK', 'TW'] }]);
   });
 
   it('gives every service what it is made of: lists of the community, rules that were collected by hand, or both', () => {
@@ -103,5 +134,49 @@ describe('the stream services', () => {
     ['youtube', 'tiktok'].forEach(list => expect({ list, in: lists.has(list) }).toEqual({ list, in: false }));
     // a whole company is not a streaming service
     ['fox', 'naver', 'amazon', 'google', 'microsoft', 'apple', 'cbs', 'nbcuniversal', 'tvb'].forEach(list => expect({ list, in: lists.has(list) }).toEqual({ list, in: false }));
+  });
+});
+
+describe('Hulu Japan', () => {
+  // https://github.com/v2fly/domain-list-community/blob/master/data/hulu has hulu.jp among the domains of Hulu; the other
+  // Japanese names are the ones that it could have, and a name that only ends the same way is not one of them
+  const HULU_LIST = ['hulu.com', 'hulu.tv', 'huluim.com', 'hulu.jp', 'x.happyon.jp', 'hjholdings.jp', 'full:hulu.playback.edge.bamgrid.com', 'full:www.hulu.jp', 'nothulu.jp'];
+  const resolveHulu = createCommunityLists({
+    loadBundle: () => Promise.resolve(null),
+    loadList: list => (list === 'hulu' ? HULU_LIST : [])
+  });
+
+  const huluJapan = nullthrow(ALL.find(service => service.name === 'Hulu Japan'), 'Hulu Japan is not a service of All');
+
+  it('is a service of Japan and of All, and not of North America', () => {
+    expect(JP.includes(huluJapan)).toEqual(true);
+    expect(ALL.includes(huluJapan)).toEqual(true);
+    expect(NORTH_AMERICA.includes(huluJapan)).toEqual(false);
+    // and Hulu, which is the one of the US, stays
+    expect(NORTH_AMERICA.some(service => service.name === 'Hulu')).toEqual(true);
+  });
+
+  it('has its domains in Japan and in All, from what was collected for it', () => {
+    expect(suffixesOf(JP)).toInclude('hulu.jp', 'happyon.jp', 'hjholdings.jp');
+    expect(suffixesOf(ALL)).toInclude('hulu.jp', 'happyon.jp', 'hjholdings.jp');
+  });
+
+  it('has none of its domains in North America, from what was collected by hand', () => {
+    expect(suffixesOf(NORTH_AMERICA).filter(domain => domain.endsWith('.jp'))).toEqual([]);
+  });
+
+  it('has none of its domains in North America through the list of the community for Hulu, which holds hulu.jp', async () => {
+    const hulu = await resolveHulu(NORTH_AMERICA.flatMap(service => service.lists ?? []));
+
+    expect(hulu.suffixes).toEqualUnsorted(['hulu.com', 'hulu.tv', 'huluim.com', 'nothulu.jp']);
+    expect(hulu.hostnames).toEqual(['hulu.playback.edge.bamgrid.com']);
+  });
+
+  it('is left out of the list of Hulu in All as well, where it comes from what was collected for it', async () => {
+    const hulu = await resolveHulu(ALL.flatMap(service => service.lists ?? []));
+
+    expect(hulu.suffixes).not.toInclude('hulu.jp');
+    expect(hulu.suffixes).not.toInclude('x.happyon.jp');
+    expect(hulu.hostnames).not.toInclude('www.hulu.jp');
   });
 });

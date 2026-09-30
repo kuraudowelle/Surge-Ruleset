@@ -21,7 +21,7 @@
     "check-output": "SWC_NODE_IGNORE_DYNAMIC=true SWC_NODE_PROJECT=tsconfig.test.json mocha --require @swc-node/register Build/lib/published-output.test.ts Build/lib/readme-routing.test.ts"
   },
   "author": "",
-  "license": "ISC",
+  "license": "AGPL-3.0-only",
   "dependencies": {
     "@ghostery/adblocker": "^2.18.2",
     "@henrygd/queue": "^1.2.0",
