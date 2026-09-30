@@ -19,13 +19,6 @@ const rSizeHeader = /^# Size: (\d+)$/;
 /** Lowercase letters, digits, hyphens and underscores, in labels that neither start nor end with a hyphen */
 const rHostname = /^[\da-z_](?:[\da-z_-]*[\da-z_])?(?:\.[\da-z_](?:[\da-z_-]*[\da-z_])?)*$/;
 
-/**
- * What the ruleset of a region has to say for the README: they are published, they hold no address today, and the Rule
- * section leaves them out (see "Files that are published but not in the Rule section"). One that gets an address
- * has to go into the Rule section, in front of `ip/stream.conf`.
- */
-const REGIONAL_IP_RULESETS = ['ip/stream_us.conf', 'ip/stream_eu.conf', 'ip/stream_jp.conf', 'ip/stream_kr.conf', 'ip/stream_hk.conf', 'ip/stream_tw.conf'];
-
 interface ListFile {
   name: string,
   text: string,
@@ -225,16 +218,5 @@ describe('the rulesets that the build published', () => {
       }
     }
     expect(outside).toEqual([]);
-  });
-
-  it('has no address in the rulesets of the regions, which the Rule section leaves out: one that has addresses belongs in front of ip/stream.conf', () => {
-    const withRules: string[] = [];
-    for (let i = 0, len = REGIONAL_IP_RULESETS.length; i < len; i++) {
-      const size = new RuleSet(REGIONAL_IP_RULESETS[i], readList(REGIONAL_IP_RULESETS[i])).size;
-      if (size !== 0) {
-        withRules.push(`${REGIONAL_IP_RULESETS[i]}: ${size}`);
-      }
-    }
-    expect(withRules).toEqual([]);
   });
 });

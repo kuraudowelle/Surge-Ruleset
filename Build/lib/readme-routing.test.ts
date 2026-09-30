@@ -7,10 +7,10 @@ import { split0th } from 'foxts/split-nth';
 
 import { ROOT_DIR } from '../constants/dir';
 import { warn } from './ci-warning';
-import { KNOWN_UNSUPPORTED_RULE_TYPES, LIST_DIR, readList } from './published-lists';
+import { KNOWN_UNSUPPORTED_RULE_TYPES, LIST_DIR, listNames, readList } from './published-lists';
 import { RuleSet, SUPPORTED_RULE_TYPES, allMatches, firstMatch, leavesOf } from './surge-rules';
 import type { OrderedRuleSet, Request } from './surge-rules';
-import { parseCheckTable, parsePolicies, parseProxyGroups, parseRuleSection } from './readme-rule-section';
+import { parseCheckTable, parsePolicies, parseProxyGroups, parseRuleSection, rRegionalIpRuleset, regionalIpProblems } from './readme-rule-section';
 import type { RuleSection, RuleSectionEntry } from './readme-rule-section';
 
 const BUILT_IN_POLICIES = new Set(['DIRECT', 'REJECT', 'REJECT-DROP', 'REJECT-NO-DROP']);
@@ -338,6 +338,19 @@ describe('the Rule section of the README', () => {
     it('gives a request that has a hostname the ruleset of the hostname, whatever address it resolves to', () => {
       expect(first({ hostname: 'gemini.google.com', destIp: firstAddressOf('ip/google.conf') })).toEqual('non_ip/gemini.conf');
       expect(first({ hostname: 'www.youtube.com', destIp: firstAddressOf('ip/google.conf') })).toEqual('non_ip/youtube.conf');
+    });
+
+    it('has the rulesets of the regions that have addresses in the Rule section, in front of ip/stream.conf, on the policy of their region', () => {
+      // the regions that have no address are left out of the section, and a region that gets some has to be put in it
+      const sizes = new Map<string, number>();
+      const names = listNames();
+      for (let i = 0, len = names.length; i < len; i++) {
+        if (rRegionalIpRuleset.test(names[i])) {
+          sizes.set(names[i], new RuleSet(names[i], readList(names[i])).size);
+        }
+      }
+      expect(sizes.size).toBeGreaterThan(0);
+      expect(regionalIpProblems(section.entries, sizes)).toEqual([]);
     });
 
     it('gives GitHub Pages to GitHub when the optional CDN addresses are switched on', () => {
