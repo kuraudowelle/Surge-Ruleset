@@ -6,9 +6,12 @@ import { looseTldtsOpt } from '../constants/loose-tldts-opt';
 import { normalizeDomain } from './normalize-domain';
 
 export interface GitHubMetaRules {
-  /** `*.example.com` of the API: the domain and every subdomain (DOMAIN-SUFFIX). It takes `example.com` itself as well, which the wildcard of GitHub does not */
+  /**
+   * `*.github.com` of the API: the domain and every subdomain (DOMAIN-SUFFIX). It takes `github.com` itself as well, which the
+   * wildcard of GitHub does not. Only the domains of GitHub, see {@link isOwnedByGitHub}
+   */
   suffixes: string[],
-  /** `example.com` of the API: exactly this hostname (DOMAIN) */
+  /** `example.com` of the API: exactly this hostname (DOMAIN), whose it is */
   hostnames: string[],
   cidr4: string[],
   cidr6: string[],
@@ -29,6 +32,21 @@ const DOMAIN_KEYS = ['website', 'codespaces', 'copilot', 'packages', 'storage', 
  * GitHub does not say anything about that this can rely on.
  */
 const IP_KEYS = ['web', 'api', 'git', 'pages', 'packages'] as const;
+
+/**
+ * The domains that GitHub owns: the ones that are named after it (github.com, githubusercontent.com, githubassets.com,
+ * github.io, ...) and its container registry. What is not one of those is somebody else's, however much of it GitHub needs.
+ *
+ * GitHub lists what its services need, for the networks that have to allow them, and that is more than what
+ * is GitHub's: the web client of Codespaces is Visual Studio Code, which needs a lot of Microsoft's and of Azure's. Allowing
+ * *.windows.net is what a firewall does. A ruleset that sends everything below it to the policy of GitHub would take every
+ * storage account, virtual machine and database that anybody has on Azure with it. This is on the safe side: a domain of
+ * GitHub that has another name is left out, and is said so, until it is added here.
+ */
+function isOwnedByGitHub(domain: string) {
+  const registrable = getDomain(domain, looseTldtsOpt);
+  return registrable !== null && (registrable.startsWith('github') || registrable === 'ghcr.io');
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -52,6 +70,9 @@ function readStrings(value: unknown, path: string): string[] {
  *
  *     "domains": { "website": ["*.github.com", ...], "actions": ["github.com", ...], ... }
  *     "web": ["192.30.252.0/22", "2a0a:a440::/29", ...]
+ *
+ * A wildcard takes everything below a domain, so only the ones on the domains of GitHub are taken, see {@link isOwnedByGitHub}.
+ * A hostname takes nothing but itself and is taken, whichever domain it is on: GitHub has storage accounts of its own on Azure.
  */
 export function parseGitHubMeta(data: unknown): GitHubMetaRules {
   if (!isRecord(data)) {
@@ -82,8 +103,8 @@ export function parseGitHubMeta(data: unknown): GitHubMetaRules {
 
     if (pattern.startsWith('*.') && !pattern.includes('*', 2)) {
       const domain = normalizeDomain(pattern.slice(2));
-      // `*.com` and `*.co.uk` would take everything below a public suffix
-      if (domain === null || getDomain(domain, looseTldtsOpt) === null) {
+      // `*.com` and `*.co.uk` would take everything below a public suffix, and `*.microsoft.com` everything of another company
+      if (domain === null || !isOwnedByGitHub(domain)) {
         skipped.add(pattern);
       } else {
         suffixes.add(domain);

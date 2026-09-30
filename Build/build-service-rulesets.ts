@@ -154,7 +154,8 @@ async function loadGitHubDomains(span: Span) {
     notes: [
       'GitHub publishes these domains itself, for the networks that have to allow its services. It says that the list is not meant to be exhaustive.',
       'Taken from it: the domains of website, codespaces, copilot, packages, storage and actions, and the services of artifact_attestations.',
-      'A wildcard like *.github.com is a DOMAIN-SUFFIX here, so it takes github.com as well.'
+      'A wildcard like *.github.com is a DOMAIN-SUFFIX here, so it takes github.com as well.',
+      'The list has domains of other companies too, which the services of GitHub need (Microsoft\'s and Azure\'s, for Codespaces). A wildcard on those would send everything of theirs to the policy of GitHub, so only the wildcards on the domains of GitHub are kept: the ones named after it, and ghcr.io. The hostnames are kept as they are listed.'
     ]
   });
 }

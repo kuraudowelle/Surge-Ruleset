@@ -113,6 +113,42 @@ describe('parseGitHubMeta', () => {
     expect(cidr4.filter(cidr => cidr === '192.30.252.0/22')).toHaveLength(1);
   });
 
+  it('keeps the wildcards on the domains of GitHub and leaves out the ones on the domains of other companies, which the API lists as well', () => {
+    // The wildcards that the API had when it was first built (the CI run of the pull request), and the keys they most likely came from:
+    // GitHub lists what its services need, the web client of Codespaces is Visual Studio Code, which needs a lot of Microsoft
+    const { suffixes, skipped } = parseGitHubMeta(createMeta({
+      domains: {
+        website: ['*.github.com', '*.githubassets.com', '*.githubusercontent.com', '*.github.io'],
+        codespaces: ['*.github.dev', '*.githubapp.com', '*.visualstudio.com', '*.microsoft.com', '*.vscode-webview.net', '*.msecnd.net', '*.azureedge.net'],
+        packages: ['*.ghcr.io'],
+        copilot: ['*.githubcopilot.com'],
+        actions: ['*.windows.net']
+      }
+    }));
+
+    expect(sorted(suffixes)).toEqual(sorted([
+      'github.com', 'githubassets.com', 'githubusercontent.com', 'github.io',
+      'github.dev', 'githubapp.com', 'ghcr.io', 'githubcopilot.com'
+    ]));
+    // *.windows.net alone would be every storage account, virtual machine and database that anybody has on Azure
+    expect(sorted(skipped)).toEqual(sorted([
+      '*.visualstudio.com', '*.microsoft.com', '*.vscode-webview.net', '*.msecnd.net', '*.azureedge.net', '*.windows.net'
+    ]));
+  });
+
+  it('keeps the hostnames of other companies that GitHub lists, since a hostname takes nothing but itself', () => {
+    const { hostnames, suffixes } = parseGitHubMeta(createMeta({
+      domains: {
+        codespaces: ['*.microsoft.com'],
+        actions: ['productionresultssa0.blob.core.windows.net', 'github-cloud.s3.amazonaws.com'],
+        copilot: ['default.exp-tas.com']
+      }
+    }));
+
+    expect(sorted(hostnames)).toEqual(sorted(['productionresultssa0.blob.core.windows.net', 'github-cloud.s3.amazonaws.com', 'default.exp-tas.com']));
+    expect(suffixes).toEqual([]);
+  });
+
   it('does not guess at patterns that are not everything below a domain, and says so', () => {
     const { suffixes, hostnames, skipped } = parseGitHubMeta(createMeta({
       domains: {
@@ -125,7 +161,7 @@ describe('parseGitHubMeta', () => {
     expect(skipped).toEqual(['productionresultssa*.blob.core.windows.net', '*.*.example.com', 'copilot-*.example.com']);
   });
 
-  it('does not take everything below a public suffix, and says so', () => {
+  it('does not take everything below a public suffix either, and says so', () => {
     const { suffixes, skipped } = parseGitHubMeta(createMeta({
       domains: { website: ['*.com', '*.co.uk', '*.github.com', '*.github.io'] }
     }));
