@@ -27,13 +27,13 @@ export const buildChnCidr = task(require.main === module, __filename)(async (spa
 
   return Promise.all([
     new IPListOutput(span, 'china_ip')
-      .withTitle('Sukka\'s Ruleset - Mainland China IPv4 CIDR')
+      .withTitle('Surge Ruleset - Mainland China IPv4 CIDR')
       .withDescription(description)
       .appendDataSource('https://github.com/misakaio/chnroutes2')
       .bulkAddCIDR4(exclude(cidr4, HONG_KONG_CMI_CIDR4, true))
       .write(),
     new IPListOutput(span, 'china_ip_ipv6')
-      .withTitle('Sukka\'s Ruleset - Mainland China IPv6 CIDR')
+      .withTitle('Surge Ruleset - Mainland China IPv6 CIDR')
       .withDescription(description)
       .appendDataSource(
         'https://github.com/gaoyifan/china-operator-ip'

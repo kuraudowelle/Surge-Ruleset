@@ -11,15 +11,17 @@ import type { Buffer } from 'node:buffer';
 import { SpanCategory, task } from './trace';
 import type { Span } from './trace';
 import { SHARED_DESCRIPTION } from './constants/description';
-import { OUTPUT_INTERNAL_DIR } from './constants/dir';
+import { OUTPUT_INTERNAL_DIR, SOURCE_DIR } from './constants/dir';
 import { RulesetOutput } from './lib/rules/ruleset';
 import { $$fetch } from './lib/fetch-retry';
-import { createReadlineInterfaceFromResponse } from './lib/fetch-text-by-line';
+import { createReadlineInterfaceFromResponse, fetchRemoteTextLines, readFileIntoProcessedArray } from './lib/fetch-text-by-line';
 import { compareAndWriteFile } from './lib/create-file';
 import { fastIpVersion } from 'foxts/fast-ip-version';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { fetchTelegramBackupEndpoints } from './lib/fetch-telegram-backup-endpoints';
 import { mtprotoAuthKeyStore } from './lib/mtproto-auth-key-store';
+import { parseDomainListCommunity } from './lib/domain-list-community';
+import { createCymruResolver, resolveTelegramAsns } from './lib/telegram-asn';
 import {
   getUncoveredEndpointCidrs,
   mergeFallbackEndpoints,
@@ -28,8 +30,25 @@ import {
 } from './lib/mtproto-dc-config';
 import type { MTProtoDCConfig, MTProtoEndpoint } from './lib/mtproto-dc-config';
 
-const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(async (span) => {
-  const { timestamp, ipcidr, ipcidr6 } = await span.traceChildAsync('get telegram cidr', async (childSpan) => {
+const CIDR_URL = 'https://core.telegram.org/resources/cidr.txt';
+/** v2fly's community list: geosite:telegram, and the rulesets derived from it, are generated from this file */
+const DOMAIN_LIST_COMMUNITY_URL = 'https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/telegram';
+/** Rules that the community list does not have, and PROTOCOL,MTProto */
+const DOMAIN_EXTRAS_PATH = path.join(SOURCE_DIR, 'non_ip/telegram.conf');
+/** The ASNs known to be Telegram's, from which the lookup starts and to which it falls back */
+const KNOWN_ASNS_PATH = path.join(SOURCE_DIR, 'ip/telegram_asn.conf');
+
+interface TelegramPrefixes {
+  timestamp: number,
+  ipcidr: string[],
+  ipcidr6: string[]
+}
+
+// The state stays above the tasks: run as a script, a task starts the moment it is defined.
+let telegramPrefixesPromise: Promise<TelegramPrefixes> | undefined;
+
+async function fetchTelegramPrefixes(span: Span): Promise<TelegramPrefixes> {
+  return span.traceChildAsync('get telegram cidr', async (childSpan) => {
     const ipcidr: string[] = [
       // Unused secret Telegram backup CIDR, announced by AS62041
       '95.161.64.0/20'
@@ -37,7 +56,7 @@ const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(a
     const ipcidr6: string[] = [];
 
     const date = await childSpan.traceChild('fetch from official cidr list', SpanCategory.Network).traceAsyncFn(async () => {
-      const resp = await $$fetch('https://core.telegram.org/resources/cidr.txt');
+      const resp = await $$fetch(CIDR_URL);
       const lastModified = resp.headers.get('last-modified');
 
       for await (const cidr of createReadlineInterfaceFromResponse(resp, true)) {
@@ -75,29 +94,131 @@ const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(a
     appendArrayInPlace(ipcidr, mapped.ipv4);
     appendArrayInPlace(ipcidr6, mapped.ipv6);
 
+    if (ipcidr.length + ipcidr6.length === 0) {
+      throw new Error('Failed to fetch data!');
+    }
+
     return { timestamp: date.getTime(), ipcidr, ipcidr6 };
   });
+}
 
-  if (ipcidr.length + ipcidr6.length === 0) {
-    throw new Error('Failed to fetch data!');
+/**
+ * The IP ruleset and the ASN lookup both start from the same prefixes. The tasks run
+ * in the same worker, so the downloads and the MTProto handshake happen once.
+ */
+function getTelegramPrefixes(span: Span) {
+  if (telegramPrefixesPromise) {
+    return span.traceChildAsync('reuse telegram prefixes', () => telegramPrefixesPromise!, SpanCategory.Wait);
   }
+  telegramPrefixesPromise = fetchTelegramPrefixes(span);
+  return telegramPrefixesPromise;
+}
+
+const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(async (span) => {
+  const { timestamp, ipcidr, ipcidr6 } = await getTelegramPrefixes(span);
 
   const description = [
     ...SHARED_DESCRIPTION,
     'Data from:',
-    ' - https://core.telegram.org/resources/cidr.txt',
+    ` - ${CIDR_URL}`,
     ' - Telegram\'s DC mapping (help.getConfig and the signed backup endpoints), which Surge\'s MTProto server picks its endpoints from'
   ];
 
   return new RulesetOutput(span, 'telegram', 'ip')
-    .withTitle('Sukka\'s Ruleset - Telegram IP CIDR')
+    .withTitle('Surge Ruleset - Telegram IP CIDR')
     .withDescription(description)
     // .withDate(date) // With extra data source, we no longer use last-modified for file date
     .appendDataSource(
-      'https://core.telegram.org/resources/cidr.txt (last updated: ' + new Date(timestamp).toISOString() + ')'
+      `${CIDR_URL} (last updated: ${new Date(timestamp).toISOString()})`
     )
     .bulkAddCIDR4NoResolve(ipcidr)
     .bulkAddCIDR6NoResolve(ipcidr6)
+    .write();
+});
+
+const buildTelegramDomains = task(require.main === module, 'build-telegram-domains')(async (span) => {
+  const lines = await span.traceChildAsync(
+    'fetch domain-list-community telegram',
+    () => fetchRemoteTextLines(DOMAIN_LIST_COMMUNITY_URL),
+    SpanCategory.Network
+  );
+
+  const { suffixes, full, skipped } = parseDomainListCommunity(lines);
+  console.log('[telegram domains]', `${suffixes.length} domains and ${full.length} hostnames from domain-list-community`, skipped.length > 0 ? { skipped } : '');
+
+  if (suffixes.length + full.length === 0) {
+    throw new Error(`${DOMAIN_LIST_COMMUNITY_URL} has no domain in it!`);
+  }
+
+  return new RulesetOutput(span, 'telegram', 'non_ip')
+    .withTitle('Surge Ruleset - Telegram Domains and MTProto')
+    .withDescription([
+      ...SHARED_DESCRIPTION,
+      '',
+      'This file contains domains used by Telegram Messenger, and PROTOCOL,MTProto, which matches everything that comes in through Surge\'s MTProto proxy server (Surge iOS 5.21.0+ or Mac 6.8.0+).',
+      'Those connections target a Telegram IP address, not a hostname, so the domains normally cannot match them. See https://manual.nssurge.com/features/mtproto.html'
+    ])
+    .appendDataSource(DOMAIN_LIST_COMMUNITY_URL)
+    .addFromRuleset(readFileIntoProcessedArray(DOMAIN_EXTRAS_PATH))
+    .bulkAddDomainSuffix(suffixes)
+    .bulkAddDomain(full)
+    .write();
+});
+
+const rKnownAsn = /^IP-ASN,(\d+)\s*(?:#.*)?$/;
+
+async function readKnownTelegramAsns() {
+  const lines = await readFileIntoProcessedArray(KNOWN_ASNS_PATH);
+  const asns: string[] = [];
+
+  for (let i = 0, len = lines.length; i < len; i++) {
+    const match = rKnownAsn.exec(lines[i]);
+    if (!match) {
+      throw new Error(`Unexpected line in ${KNOWN_ASNS_PATH}: ${lines[i]}`);
+    }
+    asns.push(match[1]);
+  }
+
+  return asns;
+}
+
+const buildTelegramASN = task(require.main === module, 'build-telegram-asn')(async (span) => {
+  const [{ ipcidr, ipcidr6 }, knownAsns] = await Promise.all([
+    getTelegramPrefixes(span),
+    readKnownTelegramAsns()
+  ]);
+
+  const { asns, discovery, error } = await span.traceChildAsync(
+    'discover telegram ASNs',
+    () => resolveTelegramAsns([...ipcidr, ...ipcidr6], knownAsns, createCymruResolver()),
+    SpanCategory.Network
+  );
+
+  if (discovery) {
+    console.log(
+      '[telegram asn]',
+      `${asns.length} ASNs, ${discovery.origins.length} of which announce the published prefixes:`,
+      asns.map(asn => `AS${asn} ${discovery.names.get(asn)}`)
+    );
+
+    const dropped = knownAsns.filter(asn => !asns.includes(asn));
+    if (dropped.length > 0) {
+      console.warn('[telegram asn]', 'Known ASNs that are not registered to Telegram (any more) and were left out:', dropped.map(asn => [asn, discovery.names.get(asn) ?? null]));
+    }
+  } else {
+    console.error('[telegram asn]', 'ASN lookup failed, using the known ASNs as they are', error);
+  }
+
+  return new RulesetOutput(span, 'telegram_asn', 'ip')
+    .withTitle('Surge Ruleset - Telegram ASN')
+    .withDescription([
+      ...SHARED_DESCRIPTION,
+      '',
+      'This file contains ASN owned/used by Telegram Messenger.',
+      'The ASNs are found by looking up which ASNs announce the prefixes Telegram publishes (see ip/telegram) in Team Cymru\'s IP to ASN mapping (https://team-cymru.com/community-services/ip-asn-mapping/), and are kept as long as the AS is registered under the name of Telegram.',
+      'Note that unlike "ip/telegram" file which is based on officially released list by Telegram themselves. Use this file at your own risk.'
+    ])
+    .bulkAddIPASN(asns)
     .write();
 });
 
@@ -289,7 +410,9 @@ export const buildMTProtoDCConfig = task(require.main === module, 'build-mtproto
 // the merged DC mapping.
 export function buildTelegram() {
   return Promise.all([
+    buildTelegramDomains(),
     buildTelegramCIDR(),
+    buildTelegramASN(),
     buildMTProtoDCConfig()
   ]);
 }

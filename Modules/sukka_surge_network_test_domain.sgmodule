@@ -1,4 +1,4 @@
-#!name=[Sukka] Change Test Url
+#!name=[Surge Ruleset] Change Test Url
 #!desc=Set the Surge network test URLs to Vivo and Cloudflare
 
 [General]

@@ -108,7 +108,7 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
 
   return Promise.all([
     new RulesetOutput(span, 'domestic', 'non_ip')
-      .withTitle('Sukka\'s Ruleset - Domestic Domains')
+      .withTitle('Surge Ruleset - Domestic Domains')
       .appendDescription(
         SHARED_DESCRIPTION,
         '',
@@ -117,7 +117,7 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
       .addFromRuleset(domestics)
       .write(),
     new RulesetOutput(span, 'domestic_cdn', 'non_ip')
-      .withTitle('Sukka\'s Ruleset - Domestic CDN Domains')
+      .withTitle('Surge Ruleset - Domestic CDN Domains')
       .appendDescription(
         SHARED_DESCRIPTION,
         '',
@@ -127,7 +127,7 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
       .addFromRuleset(domesticCdn)
       .write(),
     new RulesetOutput(span, 'direct', 'non_ip')
-      .withTitle('Sukka\'s Ruleset - Direct Rules')
+      .withTitle('Surge Ruleset - Direct Rules')
       .appendDescription(
         SHARED_DESCRIPTION,
         '',
@@ -136,7 +136,7 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
       .addFromRuleset(directs)
       .write(),
     new RulesetOutput(span, 'lan', 'non_ip')
-      .withTitle('Sukka\'s Ruleset - LAN')
+      .withTitle('Surge Ruleset - LAN')
       .appendDescription(
         SHARED_DESCRIPTION,
         '',
@@ -157,7 +157,7 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
         'sukka_local_dns_mapping',
         OUTPUT_MODULES_RULES_DIR
       )
-        .withTitle(`Sukka's Ruleset - Local DNS Mapping (${name})`)
+        .withTitle(`Surge Ruleset - Local DNS Mapping (${name})`)
         .appendDescription(
           SHARED_DESCRIPTION,
           '',
@@ -203,7 +203,7 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
     compareAndWriteFile(
       span,
       [
-        '#!name=[Sukka] Local DNS Mapping',
+        '#!name=[Surge Ruleset] Local DNS Mapping',
         `#!desc=Last Updated: ${new Date().toISOString()}`,
         '',
         '[Host]',
@@ -327,7 +327,7 @@ async function buildLANCacheRuleset(span: Span) {
     'sukka_local_dns_mapping',
     OUTPUT_MODULES_RULES_DIR
   )
-    .withTitle('Sukka\'s Ruleset - Local DNS Mapping (lancache)')
+    .withTitle('Surge Ruleset - Local DNS Mapping (lancache)')
     .appendDescription(
       SHARED_DESCRIPTION,
       '',

@@ -17,7 +17,7 @@ const PREVIOUS_OUTPUT = path.resolve(OUTPUT_SURGE_DIR, 'domainset/speedtest.conf
 
 export const buildSpeedtestDomainSet = task(require.main === module, __filename)(
   async (span) => new DomainsetOutput(span, 'speedtest')
-    .withTitle('Sukka\'s Ruleset - Speedtest Domains')
+    .withTitle('Surge Ruleset - Speedtest Domains')
     .appendDescription(
       SHARED_DESCRIPTION,
       '',

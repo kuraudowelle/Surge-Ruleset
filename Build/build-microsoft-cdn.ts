@@ -28,7 +28,7 @@ export const buildMicrosoftCdn = task(require.main === module, __filename)(async
   });
 
   return new RulesetOutput(span, 'microsoft_cdn', 'non_ip')
-    .withTitle('Sukka\'s Ruleset - Microsoft CDN')
+    .withTitle('Surge Ruleset - Microsoft CDN')
     .appendDescription(SHARED_DESCRIPTION)
     .appendDescription(
       '',

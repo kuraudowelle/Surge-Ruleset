@@ -44,7 +44,7 @@ export const buildAlwaysRealIPModule = task(require.main === module, __filename)
   return compareAndWriteFile(
     span,
     [
-      '#!name=[Sukka] Always Real IP Plus',
+      '#!name=[Surge Ruleset] Always Real IP Plus',
       `#!desc=Last Updated: ${new Date().toISOString()}`,
       '',
       '[General]',

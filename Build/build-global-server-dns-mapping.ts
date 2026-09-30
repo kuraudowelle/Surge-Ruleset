@@ -25,7 +25,7 @@ const getGlobalRulesetPromise = once(async () => {
 export const buildGlobalRuleset = task(require.main === module, __filename)(async (span) => {
   const [globals] = await getGlobalRulesetPromise();
   return new RulesetOutput(span, 'global', 'non_ip')
-    .withTitle('Sukka\'s Ruleset - General Global Services')
+    .withTitle('Surge Ruleset - General Global Services')
     .appendDescription(
       SHARED_DESCRIPTION,
       '',

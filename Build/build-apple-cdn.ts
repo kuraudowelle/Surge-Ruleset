@@ -10,7 +10,7 @@ export const buildAppleCdn = task(require.main === module, __filename)(async (sp
   const res: string[] = await span.traceChildPromise('get apple cdn domains', getAppleCdnDomainsPromise, SpanCategory.Network);
 
   return new DomainsetOutput(span, 'apple_cdn')
-    .withTitle('Sukka\'s Ruleset - Apple CDN')
+    .withTitle('Surge Ruleset - Apple CDN')
     .appendDescription(SHARED_DESCRIPTION)
     .appendDescription(
       '',

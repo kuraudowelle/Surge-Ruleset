@@ -138,9 +138,9 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 #### Telegram
 
-- Domain rules: manually maintained, plus `PROTOCOL,MTProto` (see [Surge as an MTProto proxy server](#surge-as-an-mtproto-proxy-server))
+- Domain rules: automatically generated from the [v2fly/domain-list-community `telegram`](https://github.com/v2fly/domain-list-community/blob/master/data/telegram) list, plus [a few extra domains](Source/non_ip/telegram.conf) and `PROTOCOL,MTProto` (see [Surge as an MTProto proxy server](#surge-as-an-mtproto-proxy-server))
 - IP CIDR rules: automatically generated (data sources: [`https://core.telegram.org/resources/cidr.txt`](https://core.telegram.org/resources/cidr.txt), and the DC mapping that Telegram itself hands out to its clients: `help.getConfig` over MTProto plus Telegram's signed backup endpoints)
-- ASN rules: manually maintained
+- ASN rules: automatically generated: the ASNs that announce the IP ranges above, found through [Team Cymru's IP to ASN mapping](https://team-cymru.com/community-services/ip-asn-mapping/) and kept while the AS is registered to Telegram, plus the [known ASNs](Source/ip/telegram_asn.conf) (where the lookup starts, and what is used when it fails)
 - MTProto DC mapping: automatically generated, [`Internal/mtproto-dc-config.json`](Internal/mtproto-dc-config.json)
 
 > Using only the IP CIDR rules is recommended. The IP CIDR rule data comes entirely from data published by Telegram itself and does not include the IPs of CDNs and data centers that Telegram has not yet put into use.
