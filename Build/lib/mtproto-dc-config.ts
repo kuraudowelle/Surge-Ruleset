@@ -1,11 +1,11 @@
 import { Buffer } from 'node:buffer';
 import { stableHash } from 'stable-hash';
 
-import type { Api as TgApi } from 'telegram';
+import type { Api as TgApi } from 'teleproto';
 
 import type { TelegramBackupEndpoint } from './get-telegram-backup-ip';
 import { setBit, getBit } from 'foxts/bitwise';
-import { bigint2ip, ip2bigint } from 'fast-cidr-tools';
+import { bigint2ip, contains, ip2bigint } from 'fast-cidr-tools';
 import { isProbablyIpv6 } from 'foxts/is-probably-ip';
 import { fastIpVersion } from 'foxts/fast-ip-version';
 
@@ -228,4 +228,34 @@ export function mergeFallbackEndpoints(
     bootstrapAdded,
     duplicatesRemoved
   };
+}
+
+/**
+ * Surge's MTProto server hands the rule engine the IP address it picked from the
+ * DC mapping, never a hostname, so a Telegram ruleset has to contain every address
+ * of the mapping (https://manual.nssurge.com/features/mtproto.html). The ranges
+ * Telegram publishes do not promise that on their own: some endpoints of the
+ * mapping lie outside them. This returns the /32 and /128 entries for the mapped
+ * addresses that the given ranges leave out.
+ */
+export function getUncoveredEndpointCidrs(
+  config: Pick<MTProtoDCConfig, 'options'>,
+  ipcidr: string[],
+  ipcidr6: string[]
+) {
+  const ipv4 = new Set<string>();
+  const ipv6 = new Set<string>();
+
+  for (let i = 0, len = config.options.length; i < len; i++) {
+    const { ip } = config.options[i];
+    const version = fastIpVersion(ip);
+
+    if (version === 4 && !contains(ipcidr, [ip])) {
+      ipv4.add(ip + '/32');
+    } else if (version === 6 && !contains(ipcidr6, [ip])) {
+      ipv6.add(ip + '/128');
+    }
+  }
+
+  return { ipv4: Array.from(ipv4), ipv6: Array.from(ipv6) };
 }

@@ -138,11 +138,12 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 #### Telegram
 
-- Domain rules: manually maintained
-- IP CIDR rules: automatically generated (data source: [`https://core.telegram.org/resources/cidr.txt`](https://core.telegram.org/resources/cidr.txt))
+- Domain rules: manually maintained, plus `PROTOCOL,MTProto` (see [Surge as an MTProto proxy server](#surge-as-an-mtproto-proxy-server))
+- IP CIDR rules: automatically generated (data sources: [`https://core.telegram.org/resources/cidr.txt`](https://core.telegram.org/resources/cidr.txt), and the DC mapping that Telegram itself hands out to its clients: `help.getConfig` over MTProto plus Telegram's signed backup endpoints)
 - ASN rules: manually maintained
+- MTProto DC mapping: automatically generated, [`Internal/mtproto-dc-config.json`](Internal/mtproto-dc-config.json)
 
-> Using only the IP CIDR rules is recommended. The IP CIDR rule data comes entirely from the CIDR list officially published by Telegram and does not include the IPs of CDNs and data centers that Telegram has not yet put into use.
+> Using only the IP CIDR rules is recommended. The IP CIDR rule data comes entirely from data published by Telegram itself and does not include the IPs of CDNs and data centers that Telegram has not yet put into use.
 > The ASN rules are only suitable as a supplement; using them together with an unofficial MaxMind GeoLite database (such as GeoIP2-CN) will affect matching.
 
 ```ini
@@ -155,6 +156,28 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/telegram.conf,[Replace with your policy]
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/telegram_asn.conf,[Replace with your policy]
 ```
+
+##### Surge as an MTProto proxy server
+
+Surge can act as an [MTProto proxy server](https://manual.nssurge.com/features/mtproto.html) for Telegram. The Telegram client connects to a port on Surge and only says which Telegram data center (DC) it needs; Surge picks a current endpoint of that DC from its DC mapping and evaluates the connection with the normal rules. The target of such a connection is normally a Telegram IP address, not a hostname, so domain rules do not match it. According to the manual, `PROTOCOL,MTProto` matches all of this traffic, and IP rules, ASN rules and a Telegram ruleset that contains the mapped addresses are the most reliable choices. The rulesets above are built for that:
+
+- `List/non_ip/telegram.conf` contains `PROTOCOL,MTProto`
+- `List/ip/telegram.conf` always contains every address of the DC mapping published in [`Internal/mtproto-dc-config.json`](Internal/mtproto-dc-config.json): the addresses that Telegram's published ranges leave out are added on every build
+
+The rulesets only route the traffic; the listener itself is set up in your profile. A minimal `[MTProto]` section, following the manual's quick start (see the manual for every option):
+
+```ini
+[MTProto]
+interface = 127.0.0.1
+port = 5753
+# Generate one with: openssl rand -hex 16
+secret = [Replace with your secret]
+ipv6 = true
+# Optional: take the DC mapping from this repository instead of the source Surge uses by default
+dc-config-url = https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Internal/mtproto-dc-config.json
+```
+
+> Surge downloads the DC mapping only when its stored copy is missing or older than 30 days, and keeps serving the one it has if a download fails.
 
 #### Apple CDN
 
