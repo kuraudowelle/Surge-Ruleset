@@ -1,7 +1,7 @@
 import { describe, it } from 'mocha';
 import { expect } from 'earl';
 
-import { getCidrVersion, parseCidrLines } from './cidr-lines';
+import { getCidrVersion, getPrefixedCidrVersion, parseCidrLines } from './cidr-lines';
 
 describe('getCidrVersion', () => {
   it('knows IPv4 and IPv6 addresses and ranges', () => {
@@ -18,6 +18,27 @@ describe('getCidrVersion', () => {
     const values = ['', 'AS714', '404: Not Found', '<html>', '999.1.1.1', '10.0.0', '10.0.0.0/33', 'fc00::/129', '10.0.0.0/', '10.0.0.0/a', '10.0.0.0/8/8', '/8', 'fc00:::/7'];
     for (let i = 0, len = values.length; i < len; i++) {
       expect({ value: values[i], version: getCidrVersion(values[i]) }).toEqual({ value: values[i], version: 0 });
+    }
+  });
+});
+
+describe('getPrefixedCidrVersion', () => {
+  it('knows the ranges of an API, that have an address, a slash and a prefix length', () => {
+    expect(getPrefixedCidrVersion('192.30.252.0/22')).toEqual(4);
+    expect(getPrefixedCidrVersion('8.8.8.8/32')).toEqual(4);
+    expect(getPrefixedCidrVersion('2a0a:a440::/29')).toEqual(6);
+    expect(getPrefixedCidrVersion('::/0')).toEqual(6);
+  });
+
+  it('says 0 for a bare address, which is not the notation of these APIs', () => {
+    expect(getPrefixedCidrVersion('192.30.252.0')).toEqual(0);
+    expect(getPrefixedCidrVersion('::1')).toEqual(0);
+  });
+
+  it('says 0 for what only looks like a range, which is what a classifier of dots and colons takes for one', () => {
+    const values = ['999.1.1.1/24', '1:2:3', '1:2:3/64', '10.0.0/8', '10.0.0.0/33', 'fc00::/129', '10.0.0.0/', '/8', 'not an address', ''];
+    for (let i = 0, len = values.length; i < len; i++) {
+      expect({ value: values[i], version: getPrefixedCidrVersion(values[i]) }).toEqual({ value: values[i], version: 0 });
     }
   });
 });

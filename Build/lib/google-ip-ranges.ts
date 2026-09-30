@@ -1,5 +1,5 @@
 import { exclude, merge } from 'fast-cidr-tools';
-import { fastIpVersion } from 'foxts/fast-ip-version';
+import { getPrefixedCidrVersion } from './cidr-lines';
 
 export interface GoogleIpRanges {
   cidr4: string[],
@@ -46,9 +46,9 @@ export function parseGoogleIpRanges(data: unknown): GoogleIpRanges {
       throw new TypeError(`Invalid Google IP ranges entry at prefixes[${i}]`);
     }
 
-    if ('ipv4Prefix' in entry && typeof entry.ipv4Prefix === 'string' && fastIpVersion(entry.ipv4Prefix) === 4) {
+    if ('ipv4Prefix' in entry && typeof entry.ipv4Prefix === 'string' && getPrefixedCidrVersion(entry.ipv4Prefix) === 4) {
       cidr4.add(entry.ipv4Prefix);
-    } else if ('ipv6Prefix' in entry && typeof entry.ipv6Prefix === 'string' && fastIpVersion(entry.ipv6Prefix) === 6) {
+    } else if ('ipv6Prefix' in entry && typeof entry.ipv6Prefix === 'string' && getPrefixedCidrVersion(entry.ipv6Prefix) === 6) {
       cidr6.add(entry.ipv6Prefix);
     } else {
       throw new TypeError(`Invalid Google IP ranges entry at prefixes[${i}]`);
@@ -58,9 +58,24 @@ export function parseGoogleIpRanges(data: unknown): GoogleIpRanges {
   return { cidr4: Array.from(cidr4), cidr6: Array.from(cidr6), creationTime };
 }
 
+function familiesOf(ranges: Pick<GoogleIpRanges, 'cidr4' | 'cidr6'>) {
+  if (ranges.cidr4.length === 0 && ranges.cidr6.length === 0) {
+    return 'IPv4 and IPv6';
+  }
+  if (ranges.cidr4.length === 0) {
+    return 'IPv4';
+  }
+  return ranges.cidr6.length === 0 ? 'IPv6' : null;
+}
+
 /**
  * What Google documents for the addresses that its own services use: the ranges of goog.json
  * that are not in cloud.json, since the latter are the ones that customers of Google Cloud get.
+ *
+ * Both files have both families, and the ruleset that is built from them replaces the one of the build before. A file
+ * that lacks a family is a download that broke, and the ruleset that it would make has none of that family: the routes
+ * that it had are gone, and nothing says so. So a source that lacks a family is refused, and so is a result that has
+ * none, and the ruleset of the build before stays. A source of one family on purpose is not a case that this handles.
  */
 export function subtractGoogleCloudRanges(goog: GoogleIpRanges, cloud: GoogleIpRanges) {
   // Nothing to subtract is a broken download, not Google without customers: what is left would still hold all of them
@@ -68,8 +83,20 @@ export function subtractGoogleCloudRanges(goog: GoogleIpRanges, cloud: GoogleIpR
     throw new Error('The IP ranges of Google Cloud are empty, so the ranges of its customers cannot be told from those of Google itself');
   }
 
-  return {
+  const missing = familiesOf(goog);
+  if (missing !== null) {
+    throw new Error(`The IP ranges of Google (goog.json) have no ${missing} ranges: a ruleset made from them would replace the ${missing} ranges that were published with nothing`);
+  }
+
+  const ranges = {
     cidr4: merge(exclude(merge(goog.cidr4), merge(cloud.cidr4)), true),
     cidr6: merge(exclude(merge(goog.cidr6), merge(cloud.cidr6)), true)
   };
+
+  const gone = familiesOf(ranges);
+  if (gone !== null) {
+    throw new Error(`Nothing is left of the ${gone} ranges of Google after the ranges of its customers are taken away: the download of one of the two files is not what it should be`);
+  }
+
+  return ranges;
 }

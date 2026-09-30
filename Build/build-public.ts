@@ -1,16 +1,14 @@
 import path from 'node:path';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 
 import { SpanCategory, task } from './trace';
 import { treeDir, TreeFileType } from './lib/tree-dir';
+import { copyDirContents } from './lib/copy-dir-contents';
 import type { TreeType, TreeTypeArray } from './lib/tree-dir';
 
 import { OUTPUT_MOCK_DIR, OUTPUT_MODULES_DIR, PUBLIC_DIR, ROOT_DIR } from './constants/dir';
 import { writeFile } from './lib/misc';
 import { fastStringCompare } from 'foxts/fast-string-compare';
-import type { VoidOrVoidArray } from './lib/misc';
-import picocolors from 'picocolors';
 import { tagged as html } from 'foxts/tagged';
 import { compareAndWriteFile } from './lib/create-file';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
@@ -35,37 +33,16 @@ const closedRootFolders = [
   'Internal'
 ];
 
-async function copyDirContents(srcDir: string, destDir: string, promises: Array<Promise<VoidOrVoidArray>> = []): Promise<Array<Promise<VoidOrVoidArray>>> {
-  for await (const entry of await fsp.opendir(srcDir)) {
-    const src = path.join(srcDir, entry.name);
-    const dest = path.join(destDir, entry.name);
-    if (entry.isDirectory()) {
-      // built output like Modules/Rules is already in the public directory
-      if (!fs.existsSync(dest)) {
-        console.warn(picocolors.red('[build public] cant copy directory'), src);
-      }
-    } else if (!fs.existsSync(dest)) {
-      // Modules/ and Mock/ in the repo hold hand-written files next to the previously built output, so
-      // anything that is already in the public directory (seeded from the repo, then refreshed by this
-      // build) must not be overwritten with the committed, possibly stale, copy
-      promises.push(fsp.copyFile(src, dest, fs.constants.COPYFILE_FICLONE));
-    }
-  }
-
-  return promises;
-}
-
 export const buildPublic = task(require.main === module, __filename)(async (span) => {
   await span.traceChild('copy rest of the files', SpanCategory.FsWrite).traceAsyncFn(async () => {
-    const p: Array<Promise<any>> = [];
-
     fs.mkdirSync(OUTPUT_MODULES_DIR, { recursive: true });
-    p.push(copyDirContents(path.join(ROOT_DIR, 'Modules'), OUTPUT_MODULES_DIR, p));
-
     fs.mkdirSync(OUTPUT_MOCK_DIR, { recursive: true });
-    p.push(copyDirContents(path.join(ROOT_DIR, 'Mock'), OUTPUT_MOCK_DIR, p));
 
-    await Promise.all(p);
+    // the index below is made from what this leaves in the public directory, so it has to be done first
+    await Promise.all([
+      copyDirContents(path.join(ROOT_DIR, 'Modules'), OUTPUT_MODULES_DIR),
+      copyDirContents(path.join(ROOT_DIR, 'Mock'), OUTPUT_MOCK_DIR)
+    ]);
   });
 
   const html = await span

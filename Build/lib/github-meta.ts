@@ -1,8 +1,8 @@
 import { getDomain } from 'tldts';
-import { fastIpVersion } from 'foxts/fast-ip-version';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 
 import { looseTldtsOpt } from '../constants/loose-tldts-opt';
+import { getPrefixedCidrVersion } from './cidr-lines';
 import { normalizeDomain } from './normalize-domain';
 
 export interface GitHubMetaRules {
@@ -15,7 +15,10 @@ export interface GitHubMetaRules {
   hostnames: string[],
   cidr4: string[],
   cidr6: string[],
-  /** What a ruleset cannot take, kept for the build log */
+  /**
+   * The domains and hostnames that a ruleset cannot take, kept for the build log. A range that is not an IP range is not
+   * among them: it fails the response, see {@link parseGitHubMeta}
+   */
   skipped: string[]
 }
 
@@ -129,13 +132,15 @@ export function parseGitHubMeta(data: unknown): GitHubMetaRules {
     const ranges = readStrings(data[IP_KEYS[k]], IP_KEYS[k]);
     for (let i = 0, len = ranges.length; i < len; i++) {
       const range = ranges[i].trim();
-      const version = fastIpVersion(range);
+      const version = getPrefixedCidrVersion(range);
       if (version === 4) {
         cidr4.add(range);
       } else if (version === 6) {
         cidr6.add(range);
       } else {
-        skipped.add(range);
+        // whatever else is in the list, this is not what the API publishes: a response that is wrong here must not be
+        // published in part, or with an address that is not the one it looks like, and the last good ruleset stays
+        throw new TypeError(`Invalid GitHub meta response: ${IP_KEYS[k]} has "${range}", which is not an IP range with a prefix length`);
       }
     }
   }

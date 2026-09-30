@@ -66,6 +66,19 @@ describe('parseGoogleIpRanges', () => {
   });
 });
 
+describe('parseGoogleIpRanges: what only looks like a range', () => {
+  const creationTime = '2026-09-29T19:05:03';
+
+  it('refuses an address that is not one, and a range without its prefix length, instead of publishing it', () => {
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv4Prefix: '8.8.8.0/24' }, { ipv4Prefix: '999.1.1.1/24' }] })).toThrow('prefixes[1]');
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv6Prefix: '1:2:3' }] })).toThrow('prefixes[0]');
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv4Prefix: '8.8.8.0/33' }] })).toThrow('prefixes[0]');
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv6Prefix: '2001:4860::/129' }] })).toThrow('prefixes[0]');
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv4Prefix: '8.8.8.8' }] })).toThrow('prefixes[0]');
+    expect(() => parseGoogleIpRanges({ creationTime, prefixes: [{ ipv6Prefix: '2001:4860::1' }] })).toThrow('prefixes[0]');
+  });
+});
+
 describe('subtractGoogleCloudRanges', () => {
   const creationTime = new Date('2026-09-29T19:05:03Z');
   const ranges = (cidr4: string[], cidr6: string[]) => ({ cidr4, cidr6, creationTime });
@@ -100,6 +113,29 @@ describe('subtractGoogleCloudRanges', () => {
 
     // 10.0.0.0 - 10.0.0.63 and 10.0.0.128 - 10.0.0.255 are left
     expect(cidr4).toEqual(['10.0.0.0/26', '10.0.0.128/25']);
+  });
+
+  it('gives up on a goog.json that lacks a family, instead of replacing the ranges of that family with nothing', () => {
+    const cloud = ranges(['34.0.0.0/15'], ['2600:1900::/35']);
+
+    // a single prefix of one family: the total is not zero, and the IPv6 ranges of the ruleset would be gone
+    expect(() => subtractGoogleCloudRanges(ranges(['8.8.8.0/24'], []), cloud)).toThrow('have no IPv6 ranges');
+    expect(() => subtractGoogleCloudRanges(ranges([], ['2001:4860::/32']), cloud)).toThrow('have no IPv4 ranges');
+    expect(() => subtractGoogleCloudRanges(ranges([], []), cloud)).toThrow('have no IPv4 and IPv6 ranges');
+  });
+
+  it('gives up when the ranges of the customers cover the whole of a family', () => {
+    expect(() => subtractGoogleCloudRanges(ranges(['8.8.8.0/24'], ['2001:4860::/32']), ranges(['8.0.0.0/8'], ['2600:1900::/35'])))
+      .toThrow('Nothing is left of the IPv4 ranges of Google');
+    expect(() => subtractGoogleCloudRanges(ranges(['8.8.8.0/24'], ['2001:4860::/32']), ranges(['34.0.0.0/15'], ['2001::/16'])))
+      .toThrow('Nothing is left of the IPv6 ranges of Google');
+    expect(() => subtractGoogleCloudRanges(ranges(['8.8.8.0/24'], ['2001:4860::/32']), ranges(['8.0.0.0/8'], ['2001::/16'])))
+      .toThrow('Nothing is left of the IPv4 and IPv6 ranges of Google');
+  });
+
+  it('gives both families when both files have both', () => {
+    expect(subtractGoogleCloudRanges(ranges(['8.8.8.0/24', '34.0.0.0/16'], ['2001:4860::/32', '2600:1900::/40']), ranges(['34.0.0.0/15'], ['2600:1900::/35'])))
+      .toEqual({ cidr4: ['8.8.8.0/24'], cidr6: ['2001:4860::/32'] });
   });
 
   it('gives up when it has nothing to subtract, since a download that failed would leave the ranges of all customers in', () => {
