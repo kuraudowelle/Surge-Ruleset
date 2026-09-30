@@ -4,7 +4,7 @@ Ruleset snippets for [Surge](https://nssurge.com/), maintained by [kuraudowelle]
 
 ## Rule Section
 
-Paste this over the `[Rule]` section of your Surge profile. It is the whole section, from `[Rule]` to `FINAL`, with every ruleset of this project in the order in which they work together ([How the Order Works](#how-the-order-works)). Change the policy on a line to send that ruleset somewhere else: the order does not have to change with it.
+Paste this over the `[Rule]` section of your Surge profile. It is the whole section, from `[Rule]` to `FINAL`, with every ruleset of this project in one chosen order. Which ruleset a request matches first depends on that order only, never on the policies; where the request goes depends on the policy of the ruleset it matched. The order is a set of priorities, and some of them matter when your policies differ, for instance when CDN and Streaming use different countries: [How the Order Works](#how-the-order-works) lists them, so read it before you change a policy.
 
 Every policy in it except `DIRECT`, `REJECT`, `REJECT-DROP` and `REJECT-NO-DROP` has to exist in your profile: [Policies](#policies) lists them, and has a `[Proxy Group]` to start from.
 
@@ -32,7 +32,8 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 # RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/reject-url-regex.conf,REJECT
 
 # ---- Never proxied
-# Local names, and the exceptions that live inside bigger rulesets further down (captive.apple.com inside apple.com, Google Scholar inside google.com)
+# Local names; the exceptions that live inside bigger rulesets further down (captive.apple.com inside apple.com, Google Scholar inside google.com);
+# and the processes that must never be proxied (proxy tools, downloaders, ...), whatever host they talk to
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/lan.conf,DIRECT
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/direct.conf,DIRECT
 
@@ -163,40 +164,52 @@ Speedtest = select, Proxy, DIRECT
 
 ### How the Order Works
 
-Surge follows the first rule that matches and ignores all the ones after it ([Surge manual](https://manual.nssurge.com/rules/overview.html)), so where a line stands decides which policy a host gets. The Rule section is ordered by two rules.
+Surge follows the first rule that matches and ignores all the ones after it ([Surge manual](https://manual.nssurge.com/rules/overview.html)), so where a line stands decides which ruleset a request matches, and the policy of that ruleset decides where the request goes. The order is a choice, not the only order that works: two rules give it its shape, and [the priorities](#the-priorities) below say what it chooses.
 
 **1. Rules for hostnames before IP rules.** `DOMAIN-SET` and `non_ip` rulesets do not trigger DNS resolution, `ip` rulesets do: Surge resolves the domain at the first IP rule it reaches. All the rules for hostnames have to stand in front of it, yours included (`DOMAIN`, `DOMAIN-SUFFIX` and `DOMAIN-KEYWORD` above, `IP-CIDR`, `IP-CIDR6`, `IP-ASN` and `GEOIP` below). `DOMAIN-SET` and `non_ip` rulesets both avoid DNS, so there is no order to keep between the two kinds, and the Rule section does not put `domainset` first: it orders them by what they contain, which is the second rule.
 
-**2. Narrower before broader.** A host that is in two rulesets goes to the one that stands first. A ruleset that is a part of a bigger one has to stand in front of it, or its policy is never used: YouTube Music, YouTube and TikTok in front of Streaming; Antigravity and Gemini in front of AI and Google; GitHub in front of AI and Homebrew; Apple CDN and Apple CN in front of Apple Service; Microsoft Teams and Microsoft CDN in front of Microsoft; the regions in front of the list of all streaming services. Direct stands in front of all the services, because it holds exceptions inside them (`captive.apple.com` is inside `apple.com`, Google Scholar inside `google.com`).
+**2. Narrower before broader.** A host that is in two rulesets goes to the one that stands first. A ruleset that is a part of a bigger one stands in front of it, or its policy is never used: YouTube Music, YouTube and TikTok in front of Streaming; Antigravity and Gemini in front of AI and Google; GitHub in front of AI and Homebrew; Apple CDN and Apple CN in front of Apple Service; Microsoft Teams and Microsoft CDN in front of Microsoft; the regions in front of the list of all streaming services.
 
 If you place any `ip` ruleset, or your own `IP-CIDR`, `IP-CIDR6`, `IP-ASN`, and `GEOIP` rules, before any `domainset` or `non_ip` ruleset or any `DOMAIN`, `DOMAIN-SUFFIX`, and `DOMAIN-KEYWORD` rules you added yourself, **you will immediately lose the DNS pollution protection that Surge and this project provide, and you will be completely exposed to the GFW's DNS pollution.**
 
 > Surge matches rules one by one from top to bottom in the order they appear in the configuration, and DNS resolution is performed if and only when matching IP-type rules, FINAL, or the direct policy. Adding the rulesets in the order above avoids, as far as possible, your device issuing DNS resolution for domains that need to be proxied, thereby providing a degree of protection against the so-called "DNS pollution".
 
-These overlaps stay as they are, and you meet them when your policies differ:
+#### The Priorities
 
-- **Speedtest and CDN stand in front of the services.** A host that Speedtest or CDN has and a service has too goes to Speedtest or CDN: `ytimg.com` goes to CDN, not to YouTube, and so do the hostnames on `cloudfront.net` that streaming services use (the CDN ruleset has the whole of CloudFront). Static files have a policy of their own, that is what the ruleset is for.
-- **Services stand in front of Download.** Download takes what no service claims (mirrors, object storage): `dl.google.com` goes to Google, `download.xbox.com` to Microsoft and `codeload.github.com` to GitHub. A few university mirrors that Download lists are inside academic domains that Direct lists, and stay DIRECT.
-- **GitHub stands in front of Homebrew.** `github.com` and `ghcr.io` are in both. They are GitHub's hosts, and a rule for a hostname cannot tell the traffic of Homebrew from any other traffic to them. With Homebrew in front, all of `github.com` and `ghcr.io` would go to the policy of Homebrew, so Homebrew keeps `formulae.brew.sh`.
-- **The first region wins.** Hulu Japan is in North America and in Japan, Japan stands first. HBO GO Asia is in Hong Kong and in Taiwan, Hong Kong stands first.
-- **Google's IP ranges are all of Google**, YouTube and Gemini included, and cannot be told apart by address: a connection by IP address gets the policy of Google, whatever the service is.
+From the first to the last. A priority only shows when your policies differ: with every ruleset on `Proxy`, all of them end in the same place.
+
+1. **`reject-drop`, then the blocklists.** Nothing overrides them. `reject-drop` is matched before every other rule, wherever it stands.
+2. **Direct and LAN: never proxied, and in front of every service.**
+   - Its hostnames are exceptions inside bigger rulesets: `captive.apple.com` is inside `apple.com`, Google Scholar inside `google.com`. A few university mirrors that Download lists too are inside academic domains that Direct lists, and go DIRECT.
+   - Its rules for processes (proxy tools, downloaders, `tailscaled`, ...) match by who is asking, not by the hostname, so they win over every service behind them: `api.github.com` from Safari matches GitHub, and from `aria2c` it matches Direct and goes DIRECT.
+   - The rules for processes and apps in the other rulesets (`PROCESS-NAME`, `USER-AGENT`) have the priority of their ruleset, so an app can be taken by a ruleset in front of its own: a request of YouTube Music (`USER-AGENT,YouTubeMusic*`) to `i.ytimg.com` matches CDN, not YouTube Music. Surge matches `PROCESS-NAME` on the Mac only, and `USER-AGENT` on plain HTTP or with MITM.
+3. **Speedtest and CDN: in front of the services.** A host that one of them has and a service has too goes to Speedtest or CDN: `ytimg.com` goes to CDN, not to YouTube. So do the CloudFront hosts that streaming services list, because `cdn.conf` has the whole of `cloudfront.net`: DAZN's `d151l6v8er5bdm.cloudfront.net` matches CDN before Streaming. This is a choice, and it can matter: if CDN and Streaming use different countries, a streaming service can see one session from two of them. To let a service win, move its lines in front of the CDN lines, and change the tests of this repository with them.
+4. **One service, one ruleset.** YouTube Music before YouTube, then TikTok, Reddit, Antigravity before Gemini, GitHub before Homebrew, Telegram: each in front of the bigger rulesets that contain it. GitHub stands in front of Homebrew because `github.com` and `ghcr.io` are in both, they are GitHub's hosts, and a rule for a hostname cannot tell the traffic of Homebrew from any other traffic to them. With Homebrew in front, all of `github.com` and `ghcr.io` would go to the policy of Homebrew, so Homebrew keeps `formulae.brew.sh`.
+5. **Streaming: the regions first, then all services.** Hulu Japan is in North America and in Japan, Japan stands first. HBO GO Asia is in Hong Kong and in Taiwan, Hong Kong stands first.
+6. **AI, Apple, Microsoft, Google.** AI is in front of Microsoft and Google, which have hosts of Copilot and Gemini.
+7. **Services in front of Download.** Download takes what no service claims (mirrors, object storage): `dl.google.com` goes to Google, `download.xbox.com` to Microsoft and `codeload.github.com` to GitHub.
+8. **Mainland China, then the other countries and regions.**
+9. **IP rules, last.** Google's IP ranges are all of Google, YouTube and Gemini included, and cannot be told apart by address: a connection by IP address gets the policy of Google, whatever the service is.
 
 ### Check It
 
-These hosts were tested against the published rulesets, with every ruleset on a policy of its own. The table shows the first rule that matches. The request viewer of Surge shows the rule that a request matched, so you can look at your own profile the same way.
+Which ruleset a request matches first, for hosts where the order decides. The table names the process too, because rules for processes depend on placement: the same hostname can match another ruleset from another process. The request viewer of Surge shows the rule that a request matched, so you can look at your own profile the same way.
 
-| Host | Matches first | Other rulesets that have it, or the one it is inside |
-| --- | --- | --- |
-| `music.youtube.com` | `youtubemusic.conf` | a part of YouTube; Streaming and Google have it too |
-| `www.youtube.com` | `youtube.conf` | Streaming and Google have it too |
-| `gemini.google.com` | `gemini.conf` | AI and Google have it too |
-| `api.github.com` | `github.conf` | AI has it too |
-| `ghcr.io` | `github.conf` | Homebrew and Download have it too |
-| `formulae.brew.sh` | `homebrew.conf` | what Homebrew keeps |
-| `cn.ls.apple.com` | `apple_cn.conf` | inside `apple.com`, which Apple Service has |
-| `captive.apple.com` | `direct.conf` | inside `apple.com`, which Apple Service has |
-| `scholar.google.com` | `direct.conf` | inside `google.com`, which Google has |
-| `hulu.jp` | `stream_jp.conf` | North America has it too |
+| Host | From | Matches first | Other rulesets that have it, or the one it is inside |
+| --- | --- | --- | --- |
+| `music.youtube.com` | any | `youtubemusic.conf` | a part of YouTube; Streaming and Google have it too |
+| `www.youtube.com` | any | `youtube.conf` | Streaming and Google have it too |
+| `www.tiktok.com` | any | `tiktok.conf` | Streaming has it too |
+| `gemini.google.com` | any | `gemini.conf` | AI and Google have it too |
+| `api.github.com` | Safari | `github.conf` | AI has it too |
+| `api.github.com` | `aria2c` | `direct.conf` | a process rule of Direct, in front of the services |
+| `ghcr.io` | any | `github.conf` | Homebrew and Download have it too |
+| `formulae.brew.sh` | any | `homebrew.conf` | what Homebrew keeps |
+| `cn.ls.apple.com` | any | `apple_cn.conf` | inside `apple.com`, which Apple Service has |
+| `captive.apple.com` | any | `direct.conf` | inside `apple.com`, which Apple Service has |
+| `scholar.google.com` | any | `direct.conf` | inside `google.com`, which Google has |
+| `hulu.jp` | any | `stream_jp.conf` | North America has it too |
+| `d151l6v8er5bdm.cloudfront.net` | any | `cdn.conf` | Streaming has it too (DAZN); CDN is in front, by choice |
 
 ## Rulesets
 
@@ -235,6 +248,7 @@ The automatic update never changes what is collected by hand, it adds to it: to 
 - Automatically generated, plus what is collected by hand: the hostnames of the CDNs and the asset servers of single sites that no list has ([`Source/domainset/cdn.conf`](Source/domainset/cdn.conf)), and the patterns and the few addresses ([`Source/non_ip/cdn.conf`](Source/non_ip/cdn.conf) and [`Source/ip/cdn.conf`](Source/ip/cdn.conf)), which the update keeps
 - The CDNs that the community lists ([`category-cdn-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-cdn-!cn): jsDelivr, cdnjs, esm.sh, imgix, Bunny, Gcore, CDN77, ...) and the [public gateways of IPFS](https://github.com/ipfs/public-gateway-checker), which the IPFS project lists
 - Akamai, Cloudflare and Fastly are not in the automatic part, although the community lists them as CDNs. AbemaTV, DAZN, Bilibili International, Spotify and other services that have rulesets of their own are hosted on them, and this ruleset comes before theirs: a rule for a whole network would take their traffic away from them
+- The hand-collected part does have the whole of Amazon CloudFront (`cloudfront.net`), and some streaming services list hosts on it: those go to CDN, see [The Priorities](#the-priorities)
 - The object storage domains are in [Large File Downloads](#large-file-downloads-software-updates-operating-systems-etc)
 - If you are using a commercial public proxy service and your provider offers nodes that bill traffic consumption at a low rate multiplier, you can use the rulesets above to route traffic to those nodes
 - Includes some domains that are not in `global.conf`, so even if you have no use for the low-rate nodes offered by commercial public proxy services and do not need to split this traffic, it is still recommended to use these rules; in that case, just assign them the same policy as `global.conf`
