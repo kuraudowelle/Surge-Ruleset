@@ -136,6 +136,55 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/ai.conf,[Replace with your policy]
 ```
 
+#### Reddit / Homebrew / GitHub / TikTok / YouTube / YouTube Music / Google / Gemini / Antigravity
+
+- Automatically generated on every build, from the source that is closest to the service: what its owner publishes, where the owner publishes something that a build can read, and the list that the community keeps ([v2fly/domain-list-community](https://github.com/v2fly/domain-list-community/tree/master/data)) where the owner does not. Every file says which of the two it is made from
+- One file per service, so every service can go to its own policy
+
+| Ruleset | Built from | Source |
+| --- | --- | --- |
+| `github.conf` (Non IP and IP) | GitHub's own [meta API](https://docs.github.com/en/rest/meta/meta): the domains of `website`, `codespaces`, `copilot`, `packages`, `storage` and `actions`, and the services of `artifact_attestations`; the IP ranges of `web`, `api`, `git`, `pages` and `packages`. GitHub says that neither list is meant to be exhaustive. It lists what its services need, which includes domains of Microsoft and Azure, so a wildcard is only kept on a domain of GitHub (named after it, or `ghcr.io`); hostnames are kept as listed | Official |
+| `homebrew.conf` | The defaults that Homebrew defines in its own [source code](https://github.com/Homebrew/brew/blob/HEAD/Library/Homebrew/brew.sh) for the API, the bottles and the git remotes (`HOMEBREW_*_DEFAULT_*`) | Official |
+| `google.conf` (IP) | Google's own [`goog.json`](https://www.gstatic.com/ipranges/goog.json) without [`cloud.json`](https://www.gstatic.com/ipranges/cloud.json), which is what [Google documents](https://support.google.com/a/answer/10026322) for the ranges of its own services. All of Google is in it, so YouTube and Gemini are, but cannot be told apart by their addresses | Official |
+| `google.conf` (Non IP) | [`google`](https://github.com/v2fly/domain-list-community/blob/master/data/google), and the lists it includes (YouTube, Firebase, Android, Google Play, ...) | Community |
+| `youtube.conf` | [`youtube`](https://github.com/v2fly/domain-list-community/blob/master/data/youtube) | Community |
+| `gemini.conf` | [`google-gemini`](https://github.com/v2fly/domain-list-community/blob/master/data/google-gemini): Gemini and the Google AI products that list groups with it (AI Studio, NotebookLM, Jules, Antigravity, ...) | Community |
+| `antigravity.conf` | Taken from the `google-gemini` list above: the hostnames that contain `antigravity`. What Antigravity shares with the other Google AI products is in `gemini.conf` | Community |
+| `reddit.conf` | [`reddit`](https://github.com/v2fly/domain-list-community/blob/master/data/reddit) | Community |
+| `tiktok.conf` | [`tiktok`](https://github.com/v2fly/domain-list-community/blob/master/data/tiktok) | Community |
+| `youtubemusic.conf` | The only one that is not generated: [the file](Source/non_ip/youtubemusic.conf) has what sets YouTube Music apart from YouTube, whose domains it shares (its hostname and its `USER-AGENT` rules) | Manually maintained |
+
+Why the others are community lists: no list of their domains that a build can read was found for them.
+
+- **Google** publishes its IP ranges (above), and its domains as pages for admins only: a [Chrome hostname allowlist](https://support.google.com/chrome/a/answer/6334001), a [Google Workspace one](https://knowledge.workspace.google.com/admin/getting-started/set-up-a-google-workspace-host-name-allowlist) and the [setup of Gemini Code Assist](https://docs.cloud.google.com/gemini/docs/codeassist/set-up-gemini). They list what those products need, not YouTube or Gemini as a whole. Google's [API Discovery directory](https://www.googleapis.com/discovery/v1/apis) has 535 APIs, and not the Gemini API (`generativelanguage`)
+- **Reddit** is served from Fastly: `www.reddit.com` is a CNAME for `reddit.map.fastly.net`, and its addresses are inside the [ranges that Fastly publishes](https://api.fastly.com/public-ip-list) for all of its customers, so no list of addresses can tell Reddit apart. The [registry data](https://stat.ripe.net/) does not help either: the ASN that is often given for Reddit, AS22697, is registered to Roblox
+- **TikTok**, **Antigravity** and **YouTube Music** publish nothing of the kind
+
+> The rulesets overlap (`google.conf` has YouTube and the Google AI products, `gemini.conf` has Antigravity, `homebrew.conf` has hosts of GitHub), and a connection follows the first rule that matches, so put the more specific rulesets first, as below.
+>
+> The lists of the owners are made for networks that have to allow a service, and the lists of the community for routing it, so they do not have to agree. GitHub says that its own are not exhaustive. Both can be narrower than the hand-written rules of this project (`global.conf`, `stream.conf`, `ai.conf`), which stay as they are. `USER-AGENT` and `URL-REGEX` rules cannot come from a list of domains either.
+>
+> A service whose data is gone or empty does not hold back the other rulesets: its file stays as the last build left it, and the build log says so (on GitHub Actions also as a warning on the workflow run). The build asks GitHub without a token unless `GITHUB_TOKEN` is set, which the workflow does to stay clear of the 60 requests an hour of an anonymous client.
+
+```ini
+# Non IP
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/youtubemusic.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/youtube.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/antigravity.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/gemini.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/github.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/homebrew.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/reddit.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/tiktok.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/google.conf,[Replace with your policy]
+```
+
+```ini
+# IP
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/github.conf,[Replace with your policy]
+RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/google.conf,[Replace with your policy]
+```
+
 #### Telegram
 
 - Domain rules: automatically generated from the [v2fly/domain-list-community `telegram`](https://github.com/v2fly/domain-list-community/blob/master/data/telegram) list, plus [a few extra domains](Source/non_ip/telegram.conf) and `PROTOCOL,MTProto` (see [Surge as an MTProto proxy server](#surge-as-an-mtproto-proxy-server))

@@ -86,6 +86,10 @@ jobs:
       # Foreground pnpm + Node.js setup complete, ensure cache.db is ready
       - wait: cache-db-restore
       - run: pnpm run build
+        env:
+          # Lets the build ask https://api.github.com/meta with the rate limit of a token, instead of the 60 requests an hour
+          # that an anonymous client gets, which the runners of GitHub Actions share. It is the token of this workflow, which can only read.
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Pre-deploy check
         # If the public directory doesn't exist, the build should fail.
         # If the public directory is empty, the build should fail.
