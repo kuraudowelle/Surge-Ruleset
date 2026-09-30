@@ -17,6 +17,7 @@
     "lint": "eslint --format=sukka .",
     "typecheck": "tsc --noEmit",
     "test": "SWC_NODE_IGNORE_DYNAMIC=true SWC_NODE_PROJECT=tsconfig.test.json mocha --require @swc-node/register \"Build/**/*.test.ts\"",
+    "test-code": "SWC_NODE_IGNORE_DYNAMIC=true SWC_NODE_PROJECT=tsconfig.test.json mocha --require @swc-node/register \"Build/**/*.test.ts\" --ignore Build/lib/published-output.test.ts --ignore Build/lib/readme-routing.test.ts",
     "check-output": "SWC_NODE_IGNORE_DYNAMIC=true SWC_NODE_PROJECT=tsconfig.test.json mocha --require @swc-node/register Build/lib/published-output.test.ts Build/lib/readme-routing.test.ts"
   },
   "author": "",

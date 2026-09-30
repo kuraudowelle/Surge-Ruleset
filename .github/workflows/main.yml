@@ -18,9 +18,10 @@ concurrency:
 
 jobs:
   # What does not need a build: the types, the lint of the code that this project writes (not the scripts of Mock/, which are
-  # served in place of the ones of ad networks), and the tests. The tests include the README against the rulesets that the
-  # repository has, which are the ones that raw.githubusercontent.com serves. The rulesets that a build makes are checked in
-  # the build job, before they are deployed.
+  # served in place of the ones of ad networks), and the tests of the code. The two test files that read the rulesets (the
+  # README against them, and the files themselves) are not here but in the build job, on what the build made: the rulesets
+  # that are committed are the ones of the last deploy, and a change of the code that changes them, with a test of the new
+  # output, would fail here before the deploy job could replace them, and then the deploy would never run.
   check:
     name: Check
     runs-on: ubuntu-24.04-arm
@@ -47,7 +48,7 @@ jobs:
       - name: Lint
         run: pnpm run lint
       - name: Tests
-        run: pnpm test
+        run: pnpm run test-code
 
   build:
     name: Build
