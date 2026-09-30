@@ -6,10 +6,23 @@ import { SpanCategory } from '../trace';
 import type { Span } from '../trace';
 import { readFileByLine } from './fetch-text-by-line';
 import { writeFile } from './misc';
-import { createCompareSource, fileEqualWithCommentComparator } from 'foxts/compare-source';
+import { createCompareSource } from 'foxts/compare-source';
 import { extractContentHashFromFile } from './content-hash';
 
-const fileEqual = createCompareSource(fileEqualWithCommentComparator);
+// the dates a build puts into `#!desc=Last Updated: <ISO date>` (modules) and `! Last modified: <HTTP date>` (filters)
+const rVolatileDate = /(?<=Last (?:Updated|modified): )(?:\d{4}-\d\d-\d\dT[\d:.]+Z|[A-Z][a-z]{2}, \d\d [A-Z][a-z]{2} \d{4} [\d:]+ GMT)/;
+
+/**
+ * Whether a line of the previous output is the line about to be written. Comments count:
+ * a renamed title or a changed link has to reach the file, which never happens when the
+ * rules stay the same and every comment is taken as equal. Only the dates that move on
+ * every build are left out.
+ */
+export function isSameFileLine(lineA: string, lineB: string): boolean {
+  return lineA === lineB || lineA.replace(rVolatileDate, '') === lineB.replace(rVolatileDate, '');
+}
+
+const fileEqual = createCompareSource(isSameFileLine);
 
 /**
  * The comparison half shared by {@link compareAndWriteFile} and
@@ -54,8 +67,8 @@ async function isPreviousOutputEqual(span: Span, linesA: string[], filePath: str
  *
  * When `contentHash` is provided (and the previous output already embeds a
  * content hash marker), the comparison only reads the first chunk of the
- * previous file. Otherwise it falls back to a full comment-insensitive
- * line-by-line comparison.
+ * previous file. Otherwise it falls back to a full line-by-line comparison
+ * ({@link isSameFileLine}).
  */
 export async function compareAndWriteFile(span: Span, linesA: string[], filePath: string, contentHash: string | null = null) {
   if (await isPreviousOutputEqual(span, linesA, filePath, contentHash)) {
