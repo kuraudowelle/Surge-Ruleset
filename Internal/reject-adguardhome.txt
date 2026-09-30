@@ -1,10 +1,10 @@
 ! Title: Surge Ruleset - AdGuardHome Blocklist
-! Last modified: Wed, 30 Sep 2026 11:11:46 GMT
+! Last modified: Wed, 30 Sep 2026 14:38:35 GMT
 ! Expires: 6 hours
 ! License: https://github.com/kuraudowelle/Surge-Ruleset/blob/master/LICENSE
 ! Homepage: https://github.com/kuraudowelle/Surge-Ruleset
 ! Description: The AdGuardHome ruleset supports AD blocking, tracking protection, privacy protection, anti-mining
-! $content-hash-v1$:vgOxkZEWp0Q6FOjchC3T2be3sbcbFvaR1ObpBkafIXI$
+! $content-hash-v1$:ysr9EiAqUL-XOeDdVeQFv_R8ZFoqteTNeq44qgN7IB0$
 !
 ||data^
 ||null^
@@ -9627,6 +9627,7 @@
 ||qd.x4399.com^
 ||qdzyspjx.com^
 ||qenb2pxx.xyz^
+||qfeozmawp.in^
 ||qfioxlrke.in^
 ||qichexin.com^
 ||qingolor.com^
@@ -9708,6 +9709,7 @@
 |rich.kuwo.cn^
 ||richpool.net^
 ||richpool.pro^
+||riczqmzn.com^
 ||riftharp.com^
 ||rigorlab.com^
 ||rims.aig.com^
@@ -19244,6 +19246,7 @@
 ||cvgml.yema.com^
 ||cvs.kireimo.jp^
 ||cvt1.sibnet.ru^
+||cxrmikbtwh.com^
 ||cyclamen46.com^
 ||cylinder35.top^
 ||cyu6bl939o.com^
@@ -33229,6 +33232,7 @@
 ||arcatogamest.com^
 ||archdserrana.com^
 ||archswimming.com^
+||ardassobtuse.com^
 ||ariotgribble.com^
 ||arithmetic48.top^
 ||arizona-miner.tk^
@@ -34981,6 +34985,7 @@
 ||genesismedia.com^
 ||genosstamnoi.com^
 ||genova.gas-up.it^
+||gentlycharer.com^
 ||geo.brobible.com^
 ||geo.metronews.ca^
 ||geo.thehindu.com^
@@ -36167,6 +36172,7 @@
 ||lardedjubas.shop^
 ||largedespots.cfd^
 ||larinpayment.com^
+||larkierpassu.com^
 ||lastrewessel.cfd^
 ||late-anxiety.com^
 ||lathenredded.cfd^
@@ -37304,6 +37310,7 @@
 ||pamelarandom.com^
 ||panel.rottne.com^
 ||paneltunner.qpon^
+||panneltrepak.com^
 ||panther.tigil.rs^
 ||pantysetulae.cfd^
 ||panyarwasir.cyou^
@@ -41965,6 +41972,7 @@
 ||bfdnk.aroma360.pl^
 ||bfntkv.icon.co.cr^
 ||bgdra.leletny.com^
+||bgiatueglreis.com^
 ||bgrpv.mymedic.com^
 ||bgwdym.proidee.ch^
 ||bh-ss.bethard.com^
@@ -52972,6 +52980,7 @@
 ||eqmgwbkwtwqrs.site^
 ||eqomybdpawjfg.site^
 ||eqothv.degrenne.fr^
+||eqqijviondcls.site^
 ||eqsdv.everlane.com^
 ||eqtkbdzdzexmk.site^
 ||eqtzsuhlwfudc.site^
@@ -54840,6 +54849,7 @@
 ||kkzpde.aboutyou.lt^
 ||klavjn.niawigs.com^
 ||kleding.veritas.be^
+||klkburztpcbna.site^
 ||klojs.marchesa.com^
 ||kmfdf.trywellbe.ro^
 ||kmglti.sinbiang.kr^
@@ -54873,6 +54883,7 @@
 ||ksgpdp.shopagh.com^
 ||ksmzps.itsskin.com^
 ||ksseot.europcar.pt^
+||ktbcgwvjklsck.site^
 ||ktbdxs.trendhim.se^
 ||kthjuw.lyst.com.au^
 ||ktqihtrrmslbx.site^
@@ -57379,6 +57390,7 @@
 ||scarcesurprise.com^
 ||scaredsidewalk.com^
 ||scattcytieless.cfd^
+||scbrnbtihnvjku.com^
 ||scdcem.hedinbil.se^
 ||schleppsanjak.qpon^
 ||scholarcloine.qpon^
@@ -60403,6 +60415,7 @@
 ||unyzea.aboutyou.sk^
 ||uogzih.profinfo.pl^
 ||uoird.jiujitsu.com^
+||uojmdgacsagrp.site^
 ||uoqxdh.tendapro.it^
 ||uormn.cellitas.com^
 ||uovvobtfxeekw.site^
@@ -60432,6 +60445,7 @@
 ||usyyzz.winparts.nl^
 ||usztct.gang.com.br^
 ||utility.maxxus.com^
+||utkknbearpara.site^
 ||utqfh.dermdude.com^
 ||utzr.intersport.si^
 ||uudef.beacon40.com^
@@ -60943,6 +60957,7 @@
 ||xuytfncamofxt.site^
 ||xvgsvqvwscsrg.site^
 ||xvndpbjwhhvnfu.com^
+||xvuypdknkrndc.site^
 ||xvzplbcsffibl.site^
 ||xwddvfoasvtxjo.com^
 ||xwfhxrmbzsblo.site^
@@ -61965,6 +61980,7 @@
 ||att.trk.paryskie.pl^
 ||attirecideryeah.com^
 ||attribution-day.com^
+||attsrngximiak.space^
 ||atvtg.andieswim.com^
 ||auanticwritten.qpon^
 ||audiencies.3cat.cat^
@@ -63003,6 +63019,7 @@
 ||diligenceshaped.com^
 ||dingwei.netease.com^
 ||diningsovereign.com^
+||dinsbetrlsiqc.space^
 ||diocgn.biltorvet.dk^
 ||direct-specific.com^
 ||direct.colfondos.co^
@@ -65201,6 +65218,7 @@
 ||llacb.jollypets.com^
 ||llemc.xandrolab.com^
 ||lliep.etrendygo.com^
+||llxuggnaaghgg.space^
 ||lm.erectiepillen.nl^
 ||lm.potenzmittel.com^
 ||lmczu.trailberg.com^
@@ -69360,6 +69378,7 @@
 ||swssp.simplywall.st^
 ||swwcyk.aspor.com.tr^
 ||sxbqhy.kroschke.com^
+||sxcclxzqbmxvi.space^
 ||sxcdom.ski-willy.at^
 ||sxhvutuncarlb.space^
 ||sxjfhh.indystar.com^
@@ -70663,6 +70682,7 @@
 ||xqcesbjrtzwzg.space^
 ||xqcwxsgbvclto.space^
 ||xqkkqz.puprwear.com^
+||xqnprasofdtjw.space^
 ||xqojjuggdglpj.space^
 ||xqxvqu.exoticca.net^
 ||xqyts.tantusinc.com^
@@ -70691,6 +70711,7 @@
 ||xwpinrkebxzph.space^
 ||xwsbxv.noracora.com^
 ||xwudjqpvigrfz.space^
+||xwzyijhjcoijr.space^
 ||xxkcygkzdchkf.space^
 ||xxkjak.reddoorz.com^
 ||xxwstajt.vermund.eu^
@@ -70889,6 +70910,7 @@
 ||4399stat.5054399.com^
 ||54yio5j1vx89zilm.cfd^
 ||55.kabayanengine.com^
+||5bptk16b5pzuqbt.rest^
 ||5r4k1q7utfynrwy.rest^
 ||5wk6gvt164hxbuep.cfd^
 ||5z8xfpilv3hpxmrj.cfd^
@@ -72236,6 +72258,7 @@
 ||custom.webafahnen.de^
 ||customer.growmart.de^
 ||customers.edgetag.io^
+||cuynezbxgjxwr.online^
 ||cv.atelier-shark.com^
 ||cvpthv.vipoutlet.com^
 ||cvqpuusbccduh.online^
@@ -73812,6 +73835,7 @@
 ||hfolmr.office-com.jp^
 ||hfqxp.jparkers.co.uk^
 ||hg-statsd.setapp.com^
+||hgmkewerrzxqu.online^
 ||hhcqjifspiqrd.online^
 ||hhgaa.horzehoods.com^
 ||hhgneajrszhjj.online^
@@ -75690,6 +75714,7 @@
 ||now.getwifireapp.com^
 ||noyvyv.bosonshop.com^
 ||np.nicheperfumes.net^
+||npbdecdooeeka.online^
 ||npmeflfn.kelvelo.com^
 ||npmpkifgbiqar.online^
 ||npozbs.msccruises.nl^
@@ -76266,6 +76291,7 @@
 ||referafriend.box.com^
 ||relay.coinpoker1.com^
 ||relay.coinpoker4.com^
+||remasswatsluger.qpon^
 ||rep.reptileshouse.it^
 ||repdata.golfweek.com^
 ||repdata.indystar.com^
@@ -79569,6 +79595,7 @@
 ||zkkkvb.welovebags.de^
 ||zkpaj.calocurb.co.nz^
 ||zkphg.theturmeric.co^
+||zkptoldfflrtu.online^
 ||zkthg.spoutwater.com^
 ||zktxan.unitrailer.fr^
 ||zlcukd.tekwind.co.jp^
@@ -80509,6 +80536,7 @@
 ||bugjyl.jkattire.co.uk^
 ||bundlemoviepumice.com^
 ||bup.bankofamerica.com^
+||burlacemautinfame.cfd^
 ||burldh.made-kim.co.kr^
 ||business.vodafone.com^
 ||buzzard.ficabo.com.au^
@@ -83923,6 +83951,7 @@
 ||mktg.activemind.legal^
 ||mlhtmc.macnificos.com^
 ||mlnw.oorlogsmuseum.nl^
+||mlobzaakifapu.website^
 ||mmecvn.brainweber.com^
 ||mmhhn.slayercalls.com^
 ||mmqkf.theplantguy.com^
@@ -86843,6 +86872,7 @@
 ||tmbewm.partykungen.se^
 ||tmddj.nicotinos.co.uk^
 ||tmetrics.hdfcbank.com^
+||tmgecdrnwptri.website^
 ||tmk.moebel-koehler.de^
 ||tms.hft.greenchef.com^
 ||tmsc.jerryjenkins.com^
@@ -94399,6 +94429,7 @@
 ||therocketlanguages.com^
 ||thhdtwyb.tghhouston.co^
 ||thingsafterthought.com^
+||thirlgutlessnaves.qpon^
 ||tiger.aofinance.com.au^
 ||tiger.melissajclark.ca^
 ||tigershark.moonpot.com^
@@ -126641,6 +126672,7 @@
 ||lp.svenskapostkodlotteriet.se^
 ||lp.wunderman.adobesandbox.com^
 ||luumhi.whatonearthcatalog.com^
+||m9n9o76olm4r4b22clh2x7yyx.cfd^
 ||makumva.all-usanomination.com^
 ||manauslidera2026.ondec.com.br^
 ||mango.perfectsmilecompany.com^
