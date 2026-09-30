@@ -1,10 +1,10 @@
 ! Title: Surge Ruleset - AdGuardHome Blocklist
-! Last modified: Wed, 30 Sep 2026 03:19:08 GMT
+! Last modified: Wed, 30 Sep 2026 03:43:22 GMT
 ! Expires: 6 hours
 ! License: https://github.com/kuraudowelle/Surge-Ruleset/blob/master/LICENSE
 ! Homepage: https://github.com/kuraudowelle/Surge-Ruleset
 ! Description: The AdGuardHome ruleset supports AD blocking, tracking protection, privacy protection, anti-mining
-! $content-hash-v1$:TSLtsgPS0UfDTeqHS69LX9fiGMjtaQyU-7ZxgeOv5hM$
+! $content-hash-v1$:tfKM4m-VbH9hBtIBeXjiNwaNtsZorLetTlg7qm6Ml-w$
 !
 ||data^
 ||null^
@@ -14886,6 +14886,7 @@
 ||pa.le-pays.fr^
 ||pa.leberry.fr^
 ||pa.tns-ua.com^
+||paddleapi.com^
 ||page.irco.com^
 ||page1monk.com^
 ||page9awry.com^
