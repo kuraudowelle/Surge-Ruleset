@@ -7,6 +7,7 @@ import { buildRejectIPList } from './build-reject-ip-list';
 import { buildAppleCdn } from './build-apple-cdn';
 import { buildAICIDR } from './build-ai-cidr';
 import { buildTeams } from './build-teams';
+import { buildServiceRulesets } from './build-service-rulesets';
 import { buildRejectDomainSet } from './build-reject-domainset';
 import { buildChnCidr } from './build-chn-cidr';
 import { buildSpeedtestDomainSet } from './build-speedtest-domainset';
@@ -101,6 +102,7 @@ const buildFinishedLock = path.join(ROOT_DIR, '.BUILD_FINISHED');
         buildAppleCdn(),
         buildAICIDR(),
         buildTeams(),
+        buildServiceRulesets(),
         farm.buildCdnDownloadConf(),
         buildRejectDomainSet(),
         buildChnCidr(),
