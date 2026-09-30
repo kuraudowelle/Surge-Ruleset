@@ -1,12 +1,32 @@
 // @ts-check
+import path from 'node:path';
+import process from 'node:process';
+
+import { Api as TgApi, TelegramClient as TgClient } from 'teleproto';
+import { AuthKey as TgAuthKey } from 'teleproto/crypto/AuthKey';
+import { Logger as TgLogger, LogLevel as TgLogLevel } from 'teleproto/extensions/Logger';
+import { ConnectionTCPAbridged as TgConnectionTCPAbridged } from 'teleproto/network/connection';
+import { MemorySession as TgMemorySession } from 'teleproto/sessions';
+import type { Buffer } from 'node:buffer';
 import { SpanCategory, task } from './trace';
+import type { Span } from './trace';
 import { SHARED_DESCRIPTION } from './constants/description';
+import { OUTPUT_INTERNAL_DIR } from './constants/dir';
 import { RulesetOutput } from './lib/rules/ruleset';
 import { $$fetch } from './lib/fetch-retry';
 import { createReadlineInterfaceFromResponse } from './lib/fetch-text-by-line';
+import { compareAndWriteFile } from './lib/create-file';
 import { fastIpVersion } from 'foxts/fast-ip-version';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { fetchTelegramBackupEndpoints } from './lib/fetch-telegram-backup-endpoints';
+import { mtprotoAuthKeyStore } from './lib/mtproto-auth-key-store';
+import {
+  getUncoveredEndpointCidrs,
+  mergeFallbackEndpoints,
+  normalizeTelegramConfig,
+  TELEGRAM_BOOTSTRAP_ENDPOINTS
+} from './lib/mtproto-dc-config';
+import type { MTProtoDCConfig, MTProtoEndpoint } from './lib/mtproto-dc-config';
 
 const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(async (span) => {
   const { timestamp, ipcidr, ipcidr6 } = await span.traceChildAsync('get telegram cidr', async (childSpan) => {
@@ -43,6 +63,18 @@ const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(a
 
     appendArrayInPlace(ipcidr, Array.from(backupIPs, i => i + '/32'));
 
+    // Surge's MTProto server hands the rule engine the IP address it picked from the
+    // DC mapping (https://manual.nssurge.com/features/mtproto.html), so the ruleset
+    // has to contain every address of the mapping that Internal/mtproto-dc-config.json
+    // publishes, not only what the published ranges happen to cover.
+    const dcConfig = await childSpan.traceChildAsync('get MTProto DC config', getMTProtoDCConfig);
+    const mapped = getUncoveredEndpointCidrs(dcConfig, ipcidr, ipcidr6);
+
+    console.log('[telegram cidr]', `${dcConfig.options.length} DC mapping endpoints, outside the published ranges:`, mapped);
+
+    appendArrayInPlace(ipcidr, mapped.ipv4);
+    appendArrayInPlace(ipcidr6, mapped.ipv6);
+
     return { timestamp: date.getTime(), ipcidr, ipcidr6 };
   });
 
@@ -53,7 +85,8 @@ const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(a
   const description = [
     ...SHARED_DESCRIPTION,
     'Data from:',
-    ' - https://core.telegram.org/resources/cidr.txt'
+    ' - https://core.telegram.org/resources/cidr.txt',
+    ' - Telegram\'s DC mapping (help.getConfig and the signed backup endpoints), which Surge\'s MTProto server picks its endpoints from'
   ];
 
   return new RulesetOutput(span, 'telegram', 'ip')
@@ -67,28 +100,6 @@ const buildTelegramCIDR = task(require.main === module, 'build-telegram-cidr')(a
     .bulkAddCIDR6NoResolve(ipcidr6)
     .write();
 });
-
-// @ts-check
-import path from 'node:path';
-import process from 'node:process';
-
-import { Api as TgApi, TelegramClient as TgClient } from 'teleproto';
-import { AuthKey as TgAuthKey } from 'teleproto/crypto/AuthKey';
-import { Logger as TgLogger, LogLevel as TgLogLevel } from 'teleproto/extensions/Logger';
-import { ConnectionTCPAbridged as TgConnectionTCPAbridged } from 'teleproto/network/connection';
-import { MemorySession as TgMemorySession } from 'teleproto/sessions';
-import type { Buffer } from 'node:buffer';
-import type { Span } from './trace';
-import { mtprotoAuthKeyStore } from './lib/mtproto-auth-key-store';
-
-import { OUTPUT_INTERNAL_DIR } from './constants/dir';
-import { compareAndWriteFile } from './lib/create-file';
-import {
-  mergeFallbackEndpoints,
-  normalizeTelegramConfig,
-  TELEGRAM_BOOTSTRAP_ENDPOINTS
-} from './lib/mtproto-dc-config';
-import type { MTProtoDCConfig, MTProtoEndpoint } from './lib/mtproto-dc-config';
 
 const TELEGRAM_API_ID = 2040;
 const OUTPUT_PATH = path.join(OUTPUT_INTERNAL_DIR, 'mtproto-dc-config.json');
@@ -227,7 +238,7 @@ async function fetchConfigFromBootstrapEndpoints(span: Span) {
   );
 }
 
-export const buildMTProtoDCConfig = task(require.main === module, 'build-mtproto-dc-config')(async (span) => {
+async function fetchMTProtoDCConfig(span: Span) {
   const config = await span.traceChildAsync(
     'fetch help.getConfig',
     fetchConfigFromBootstrapEndpoints,
@@ -248,12 +259,34 @@ export const buildMTProtoDCConfig = task(require.main === module, 'build-mtproto
     outputEndpoints: config.options.length
   });
 
+  return config;
+}
+
+let mtprotoDCConfigPromise: Promise<MTProtoDCConfig> | undefined;
+
+/**
+ * Both tasks need the merged DC mapping: buildMTProtoDCConfig publishes it and
+ * buildTelegramCIDR puts every address of it into the ruleset. They run in the
+ * same worker, so the handshake and the backup lookups happen once.
+ */
+function getMTProtoDCConfig(span: Span) {
+  if (mtprotoDCConfigPromise) {
+    return span.traceChildAsync('reuse MTProto DC config', () => mtprotoDCConfigPromise!, SpanCategory.Wait);
+  }
+  mtprotoDCConfigPromise = fetchMTProtoDCConfig(span);
+  return mtprotoDCConfigPromise;
+}
+
+export const buildMTProtoDCConfig = task(require.main === module, 'build-mtproto-dc-config')(async (span) => {
+  const config = await getMTProtoDCConfig(span);
+
   const output = JSON.stringify(config satisfies MTProtoDCConfig, null, 2).split('\n');
   await compareAndWriteFile(span, output, OUTPUT_PATH);
 });
 
 // Start both tasks in this worker concurrently. They retain independent trace
-// results while sharing the module-scoped production backup endpoint promise.
+// results while sharing the module-scoped production backup endpoint promise and
+// the merged DC mapping.
 export function buildTelegram() {
   return Promise.all([
     buildTelegramCIDR(),

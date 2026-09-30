@@ -5,6 +5,7 @@ import { not, nullthrow } from 'foxts/guard';
 import { fastIpVersion } from 'foxts/fast-ip-version';
 import { addArrayElementsToSet } from 'foxts/add-array-elements-to-set';
 import type { MaybePromise } from '../misc';
+import { normalizeSurgeProtocol } from '../surge-protocol';
 import type { BaseWriteStrategy } from '../writing-strategy/base';
 import { SurgeMitmSgmodule } from '../writing-strategy/surge';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
@@ -290,7 +291,7 @@ export class FileOutput {
           this.destPort.add(value);
           break;
         case 'PROTOCOL':
-          this.protocol.add(value.toUpperCase());
+          this.protocol.add(normalizeSurgeProtocol(value));
           break;
         default:
           this.otherRules.push(line);

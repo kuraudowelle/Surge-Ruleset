@@ -5,6 +5,7 @@ import {
   DC_OPTION_FLAG_IPV6,
   DC_OPTION_FLAG_MEDIA_ONLY,
   DC_OPTION_FLAG_STATIC,
+  getUncoveredEndpointCidrs,
   mergeFallbackEndpoints,
   TELEGRAM_BOOTSTRAP_ENDPOINTS
 } from './mtproto-dc-config';
@@ -140,5 +141,58 @@ describe('MTProto DC config', () => {
       && option.secret === 'AQID'
       && option.flags === (setBit(1 << 10, DC_OPTION_FLAG_STATIC))
     ))).toEqual(true);
+  });
+});
+
+describe('getUncoveredEndpointCidrs', () => {
+  const options = [
+    { id: 2, ip: '149.154.167.50', port: 443, flags: DC_OPTION_FLAG_STATIC },
+    { id: 4, ip: '194.221.250.50', port: 443, flags: 1 << 10, secret: 'AQID' },
+    { id: 2, ip: '2001:67c:4e8:f002::a', port: 443, flags: setBit(DC_OPTION_FLAG_STATIC, DC_OPTION_FLAG_IPV6) },
+    { id: 5, ip: '2001:db8::5', port: 443, flags: DC_OPTION_FLAG_IPV6 }
+  ];
+
+  it('returns the mapped addresses that the published ranges leave out, as /32 and /128', () => {
+    expect(getUncoveredEndpointCidrs(
+      { options },
+      ['149.154.160.0/20'],
+      ['2001:67c:4e8::/48']
+    )).toEqual({
+      ipv4: ['194.221.250.50/32'],
+      ipv6: ['2001:db8::5/128']
+    });
+  });
+
+  it('returns nothing when the ranges cover the whole mapping', () => {
+    expect(getUncoveredEndpointCidrs(
+      { options },
+      ['149.154.160.0/20', '194.221.250.50/32'],
+      ['2001:67c:4e8::/48', '2001:db8::/32']
+    )).toEqual({ ipv4: [], ipv6: [] });
+  });
+
+  it('returns every address once when there are no ranges, even if the mapping lists it several times', () => {
+    expect(getUncoveredEndpointCidrs(
+      {
+        options: [
+          ...options,
+          // the same address as a media endpoint and as a static one
+          { id: 2, ip: '149.154.167.50', port: 443, flags: DC_OPTION_FLAG_MEDIA_ONLY }
+        ]
+      },
+      [],
+      []
+    )).toEqual({
+      ipv4: ['149.154.167.50/32', '194.221.250.50/32'],
+      ipv6: ['2001:67c:4e8:f002::a/128', '2001:db8::5/128']
+    });
+  });
+
+  it('does not match an address of one IP version against ranges of the other', () => {
+    expect(getUncoveredEndpointCidrs(
+      { options: [options[0]] },
+      [],
+      ['2001:67c:4e8::/48']
+    )).toEqual({ ipv4: ['149.154.167.50/32'], ipv6: [] });
   });
 });
