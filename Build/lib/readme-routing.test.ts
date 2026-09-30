@@ -6,6 +6,7 @@ import { nullthrow } from 'foxts/guard';
 import { split0th } from 'foxts/split-nth';
 
 import { ROOT_DIR } from '../constants/dir';
+import { warn } from './ci-warning';
 import { KNOWN_UNSUPPORTED_RULE_TYPES, LIST_DIR, readList } from './published-lists';
 import { RuleSet, SUPPORTED_RULE_TYPES, allMatches, firstMatch, leavesOf } from './surge-rules';
 import type { OrderedRuleSet, Request } from './surge-rules';
@@ -19,9 +20,13 @@ const rAddressOrLogicalRule = /^(?:IP-CIDR6?|AND|OR|NOT),/;
 
 interface Probe {
   request: Request,
-  /** The ruleset that matches first */
+  /** The ruleset that matches first: a request that goes to another one is a failure */
   first: string,
-  /** Rulesets that match this request as well, and stand behind the first: without them the probe would prove nothing */
+  /**
+   * Rulesets that match this request as well, and stand behind the first, so that the probe shows that the order decides.
+   * A list that drops one of them has not changed the routing, and the probe has stopped showing what it was for: that
+   * is a warning of the run, and not a failure.
+   */
   also?: string[]
 }
 
@@ -99,9 +104,12 @@ describe('the Rule section of the README', () => {
       it(`${label(probe.request)} matches ${probe.first} first`, () => {
         const matched = allMatches(order(), probe.request).map(match => match.ruleset);
         expect({ request: label(probe.request), first: matched[0] ?? null }).toEqual({ request: label(probe.request), first: probe.first });
-        // the rulesets behind the first that the request is in as well: without them, the probe proves nothing
+        // the rulesets behind the first that the request is in as well: without them the routing is what it was, and the probe
+        // no longer shows that the order decides, which is worth a look and is not a reason to stop a build
         const missing = (probe.also ?? []).filter(name => !matched.slice(1).includes(name));
-        expect({ request: label(probe.request), notBehind: missing }).toEqual({ request: label(probe.request), notBehind: [] });
+        if (missing.length > 0) {
+          warn('A probe of the routing lost an overlap', `${label(probe.request)} matches ${probe.first} first, as it should, and ${missing.join(' and ')} no longer has it: the order does not decide this any more, and the probe can be updated or dropped`);
+        }
       });
     }
   }
@@ -332,61 +340,154 @@ describe('the Rule section of the README', () => {
       expect(first({ hostname: 'www.youtube.com', destIp: firstAddressOf('ip/google.conf') })).toEqual('non_ip/youtube.conf');
     });
 
-    it('lets GitHub Pages, which CDN lists as well, stay with GitHub when the optional CDN addresses are switched on', () => {
+    it('gives GitHub Pages to GitHub when the optional CDN addresses are switched on', () => {
       const withCdn = section.entries.filter(entry => !entry.optional || entry.ruleset === 'ip/cdn.conf');
       expect(withCdn.some(entry => entry.ruleset === 'ip/cdn.conf')).toEqual(true);
       expect(first({ destIp: '185.199.108.153' }, withCdn)).toEqual('ip/github.conf');
-      expect(allMatches(order(withCdn), { destIp: '185.199.108.153' }).map(match => match.ruleset)).toEqual(['ip/github.conf', 'ip/cdn.conf']);
+
+      // CDN lists the addresses of GitHub Pages as well, because Fastly announces them. That is what makes the order matter
+      // for them, and a CDN list that drops them leaves the routing as it is
+      const behind = allMatches(order(withCdn), { destIp: '185.199.108.153' }).slice(1).map(match => match.ruleset);
+      if (!behind.includes('ip/cdn.conf')) {
+        warn('A probe of the routing lost an overlap', '185.199.108.153 matches ip/github.conf first, as it should, and ip/cdn.conf no longer has it: the order does not decide this any more');
+      }
     });
   });
 
   describe('the order is what decides: the same requests go elsewhere when a ruleset stands somewhere else', () => {
+    /**
+     * These controls are run on rulesets that are fixed: a few lines each, with the overlap that a control is about written
+     * into them. The order is the one of the README, and the content is not the one of the lists, so that a control shows
+     * that the order decides and does not depend on what a list has today: an upstream list that drops an overlap (the AI
+     * list without `api.github.com`) leaves the routing as it is, and must not fail a control, or stop a build. A ruleset
+     * of the Rule section that has no lines here is empty, and stands where the README puts it.
+     */
+    const FIXTURES: Record<string, string[]> = {
+      'non_ip/youtubemusic.conf': ['DOMAIN,music.youtube.com'],
+      'non_ip/youtube.conf': ['DOMAIN-SUFFIX,youtube.com'],
+      'non_ip/tiktok.conf': ['DOMAIN-SUFFIX,tiktok.com'],
+      // the list of all the services has every host that a control needs, DAZN's CloudFront host among them
+      'non_ip/stream.conf': ['DOMAIN-SUFFIX,youtube.com', 'DOMAIN-SUFFIX,tiktok.com', 'DOMAIN-SUFFIX,hbogoasia.com', 'DOMAIN,d151l6v8er5bdm.cloudfront.net'],
+      'non_ip/stream_hk.conf': ['DOMAIN-SUFFIX,hbogoasia.com'],
+      'non_ip/stream_tw.conf': ['DOMAIN-SUFFIX,hbogoasia.com'],
+      'non_ip/gemini.conf': ['DOMAIN,gemini.google.com'],
+      'non_ip/ai.conf': ['DOMAIN,gemini.google.com', 'DOMAIN,api.github.com'],
+      'non_ip/github.conf': ['DOMAIN-SUFFIX,github.com', 'DOMAIN-SUFFIX,ghcr.io'],
+      'non_ip/homebrew.conf': ['DOMAIN,github.com', 'DOMAIN,ghcr.io', 'DOMAIN,formulae.brew.sh'],
+      'non_ip/apple_services.conf': ['DOMAIN-SUFFIX,apple.com'],
+      'non_ip/apple_cn.conf': ['DOMAIN,cn.ls.apple.com'],
+      'non_ip/direct.conf': ['PROCESS-NAME,aria2c'],
+      'domainset/cdn.conf': ['.cloudfront.net'],
+      'domainset/download.conf': ['ghcr.io'],
+      // GitHub Pages: the addresses that both of them list
+      'ip/github.conf': ['IP-CIDR,185.199.108.0/22,no-resolve'],
+      'ip/cdn.conf': ['IP-CIDR,185.199.108.0/22,no-resolve']
+    };
+
+    const fixtures = new Map<string, RuleSet>();
+    Object.entries(FIXTURES).forEach(([name, lines]) => {
+      fixtures.set(name, new RuleSet(name, lines.join('\n'), { domainSet: name.startsWith('domainset/') }));
+    });
+
+    const inFixtures = (entries: readonly RuleSectionEntry[]): OrderedRuleSet[] => entries.map(entry => ({
+      ruleSet: fixtures.get(entry.ruleset) ?? new RuleSet(entry.ruleset, '', { domainSet: entry.kind === 'DOMAIN-SET' }),
+      preMatching: entry.options.includes('pre-matching')
+    }));
+    /** The ruleset that a request matches first, in the order of `entries` (the README's by default), with the content of the fixtures */
+    const firstOfFixtures = (request: Request, entries: readonly RuleSectionEntry[] = active()) => firstMatch(inFixtures(entries), request)?.ruleset ?? null;
+
+    it('has an overlap in every fixture that a control is about, so that the order is what decides, and not the fixture', () => {
+      // a fixture whose hosts are in one ruleset only would pass whatever the order is: the hosts of the controls are in two or more
+      const requests: Array<[request: Request, rulesets: string[]]> = [
+        [{ hostname: 'www.youtube.com' }, ['non_ip/youtube.conf', 'non_ip/stream.conf']],
+        [{ hostname: 'music.youtube.com' }, ['non_ip/youtubemusic.conf', 'non_ip/youtube.conf', 'non_ip/stream.conf']],
+        [{ hostname: 'www.tiktok.com' }, ['non_ip/tiktok.conf', 'non_ip/stream.conf']],
+        [{ hostname: 'gemini.google.com' }, ['non_ip/gemini.conf', 'non_ip/ai.conf']],
+        [{ hostname: 'api.github.com', process: 'Safari' }, ['non_ip/ai.conf', 'non_ip/github.conf']],
+        [{ hostname: 'api.github.com', process: 'aria2c' }, ['non_ip/direct.conf', 'non_ip/ai.conf', 'non_ip/github.conf']],
+        [{ hostname: 'cn.ls.apple.com' }, ['non_ip/apple_cn.conf', 'non_ip/apple_services.conf']],
+        [{ hostname: 'www.hbogoasia.com' }, ['non_ip/stream_hk.conf', 'non_ip/stream_tw.conf', 'non_ip/stream.conf']],
+        [{ hostname: 'd151l6v8er5bdm.cloudfront.net' }, ['domainset/cdn.conf', 'non_ip/stream.conf']],
+        [{ hostname: 'github.com' }, ['non_ip/github.conf', 'non_ip/homebrew.conf']],
+        [{ hostname: 'ghcr.io' }, ['non_ip/github.conf', 'non_ip/homebrew.conf', 'domainset/download.conf']],
+        [{ destIp: '185.199.108.153' }, ['ip/github.conf', 'ip/cdn.conf']]
+      ];
+      for (let i = 0, len = requests.length; i < len; i++) {
+        const [request, rulesets] = requests[i];
+        const matching = Array.from(fixtures.values(), ruleSet => (ruleSet.match(request) === null ? null : ruleSet.name)).filter(name => name !== null);
+        expect({ request: label(request), rulesets: matching.sort() }).toEqual({ request: label(request), rulesets: rulesets.slice().sort() });
+      }
+    });
+
     it('sends YouTube to Streaming, if Streaming stands in front of YouTube', () => {
+      expect(firstOfFixtures({ hostname: 'www.youtube.com' })).toEqual('non_ip/youtube.conf');
+      expect(firstOfFixtures({ hostname: 'music.youtube.com' })).toEqual('non_ip/youtubemusic.conf');
+
       const entries = moved(active(), 'non_ip/stream.conf', 'before', 'non_ip/youtubemusic.conf');
-      expect(first({ hostname: 'www.youtube.com' }, entries)).toEqual('non_ip/stream.conf');
-      expect(first({ hostname: 'music.youtube.com' }, entries)).toEqual('non_ip/stream.conf');
+      expect(firstOfFixtures({ hostname: 'www.youtube.com' }, entries)).toEqual('non_ip/stream.conf');
+      expect(firstOfFixtures({ hostname: 'music.youtube.com' }, entries)).toEqual('non_ip/stream.conf');
     });
 
     it('sends TikTok to Streaming, if Streaming stands in front of TikTok', () => {
-      expect(first({ hostname: 'www.tiktok.com' }, moved(active(), 'non_ip/stream.conf', 'before', 'non_ip/tiktok.conf'))).toEqual('non_ip/stream.conf');
+      expect(firstOfFixtures({ hostname: 'www.tiktok.com' })).toEqual('non_ip/tiktok.conf');
+      expect(firstOfFixtures({ hostname: 'www.tiktok.com' }, moved(active(), 'non_ip/stream.conf', 'before', 'non_ip/tiktok.conf'))).toEqual('non_ip/stream.conf');
     });
 
     it('sends Gemini to AI, if AI stands in front of Gemini', () => {
-      expect(first({ hostname: 'gemini.google.com' }, moved(active(), 'non_ip/ai.conf', 'before', 'non_ip/gemini.conf'))).toEqual('non_ip/ai.conf');
+      expect(firstOfFixtures({ hostname: 'gemini.google.com' })).toEqual('non_ip/gemini.conf');
+      expect(firstOfFixtures({ hostname: 'gemini.google.com' }, moved(active(), 'non_ip/ai.conf', 'before', 'non_ip/gemini.conf'))).toEqual('non_ip/ai.conf');
     });
 
     it('sends the GitHub API to AI, if AI stands in front of GitHub', () => {
-      expect(first({ hostname: 'api.github.com', process: 'Safari' }, moved(active(), 'non_ip/github.conf', 'after', 'non_ip/ai.conf'))).toEqual('non_ip/ai.conf');
+      expect(firstOfFixtures({ hostname: 'api.github.com', process: 'Safari' })).toEqual('non_ip/github.conf');
+      expect(firstOfFixtures({ hostname: 'api.github.com', process: 'Safari' }, moved(active(), 'non_ip/github.conf', 'after', 'non_ip/ai.conf'))).toEqual('non_ip/ai.conf');
     });
 
     it('sends Apple CN to Apple Service, if Apple Service stands in front of Apple CN', () => {
-      expect(first({ hostname: 'cn.ls.apple.com' }, moved(active(), 'non_ip/apple_services.conf', 'before', 'non_ip/apple_cn.conf'))).toEqual('non_ip/apple_services.conf');
+      expect(firstOfFixtures({ hostname: 'cn.ls.apple.com' })).toEqual('non_ip/apple_cn.conf');
+      expect(firstOfFixtures({ hostname: 'cn.ls.apple.com' }, moved(active(), 'non_ip/apple_services.conf', 'before', 'non_ip/apple_cn.conf'))).toEqual('non_ip/apple_services.conf');
     });
 
     it('sends Hong Kong HBO GO Asia to Taiwan, if Taiwan stands in front of Hong Kong', () => {
-      expect(first({ hostname: 'www.hbogoasia.com' }, moved(active(), 'non_ip/stream_tw.conf', 'before', 'non_ip/stream_hk.conf'))).toEqual('non_ip/stream_tw.conf');
+      expect(firstOfFixtures({ hostname: 'www.hbogoasia.com' })).toEqual('non_ip/stream_hk.conf');
+      expect(firstOfFixtures({ hostname: 'www.hbogoasia.com' }, moved(active(), 'non_ip/stream_tw.conf', 'before', 'non_ip/stream_hk.conf'))).toEqual('non_ip/stream_tw.conf');
     });
 
     it('sends a process of Direct to GitHub, if GitHub stands in front of Direct', () => {
+      expect(firstOfFixtures({ hostname: 'api.github.com', process: 'aria2c' })).toEqual('non_ip/direct.conf');
       const entries = moved(active(), 'non_ip/direct.conf', 'after', 'non_ip/github.conf');
-      expect(first({ hostname: 'api.github.com', process: 'aria2c' }, entries)).toEqual('non_ip/github.conf');
+      expect(firstOfFixtures({ hostname: 'api.github.com', process: 'aria2c' }, entries)).toEqual('non_ip/github.conf');
     });
 
     it('sends the CloudFront host of DAZN to Streaming, if Streaming stands in front of CDN, and that is the other order that could be chosen', () => {
+      expect(firstOfFixtures({ hostname: 'd151l6v8er5bdm.cloudfront.net' })).toEqual('domainset/cdn.conf');
       const entries = moved(active(), 'domainset/cdn.conf', 'after', 'non_ip/stream.conf');
-      expect(first({ hostname: 'd151l6v8er5bdm.cloudfront.net' }, entries)).toEqual('non_ip/stream.conf');
+      expect(firstOfFixtures({ hostname: 'd151l6v8er5bdm.cloudfront.net' }, entries)).toEqual('non_ip/stream.conf');
     });
 
     it('sends all of github.com to Homebrew, if Homebrew stands in front of GitHub, which is why it does not', () => {
+      expect(firstOfFixtures({ hostname: 'github.com' })).toEqual('non_ip/github.conf');
+      expect(firstOfFixtures({ hostname: 'ghcr.io' })).toEqual('non_ip/github.conf');
+      expect(firstOfFixtures({ hostname: 'formulae.brew.sh' })).toEqual('non_ip/homebrew.conf');
+
       const entries = moved(active(), 'non_ip/homebrew.conf', 'before', 'non_ip/github.conf');
-      expect(first({ hostname: 'github.com' }, entries)).toEqual('non_ip/homebrew.conf');
-      expect(first({ hostname: 'ghcr.io' }, entries)).toEqual('non_ip/homebrew.conf');
-      expect(first({ hostname: 'api.github.com' }, entries)).toEqual('non_ip/github.conf');
+      expect(firstOfFixtures({ hostname: 'github.com' }, entries)).toEqual('non_ip/homebrew.conf');
+      expect(firstOfFixtures({ hostname: 'ghcr.io' }, entries)).toEqual('non_ip/homebrew.conf');
+      expect(firstOfFixtures({ hostname: 'api.github.com' }, entries)).toEqual('non_ip/github.conf');
     });
 
     it('sends ghcr.io to Download, if the DOMAIN-SETs stand in front of the other rulesets, which is why they do not', () => {
+      expect(firstOfFixtures({ hostname: 'ghcr.io' })).toEqual('non_ip/github.conf');
       const entries = [...active().filter(entry => entry.kind === 'DOMAIN-SET'), ...active().filter(entry => entry.kind === 'RULE-SET')];
-      expect(first({ hostname: 'ghcr.io' }, entries)).toEqual('domainset/download.conf');
+      expect(firstOfFixtures({ hostname: 'ghcr.io' }, entries)).toEqual('domainset/download.conf');
+    });
+
+    it('sends GitHub Pages to CDN, if CDN stands in front of GitHub, with the optional CDN addresses switched on', () => {
+      const withCdn = section.entries.filter(entry => !entry.optional || entry.ruleset === 'ip/cdn.conf');
+      expect(firstOfFixtures({ destIp: '185.199.108.153' }, withCdn)).toEqual('ip/github.conf');
+      expect(firstOfFixtures({ destIp: '185.199.108.153' }, moved(withCdn, 'ip/cdn.conf', 'before', 'ip/github.conf'))).toEqual('ip/cdn.conf');
+      // and without them, which is what the Rule section has by default, there is nothing to decide
+      expect(firstOfFixtures({ destIp: '185.199.108.153' })).toEqual('ip/github.conf');
     });
   });
 
