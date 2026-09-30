@@ -17,6 +17,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # What does not need a build: the types, the lint of the code that this project writes (not the scripts of Mock/, which are
+  # served in place of the ones of ad networks), and the tests. The tests include the README against the rulesets that the
+  # repository has, which are the ones that raw.githubusercontent.com serves. The rulesets that a build makes are checked in
+  # the build job, before they are deployed.
+  check:
+    name: Check
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up pnpm
+        uses: pnpm/setup@v2
+        with:
+          install: false
+          cache: true
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: ".node-version"
+          package-manager-cache: false
+      - run: pnpm config set --location=global minimumReleaseAge 0
+      - run: pnpm install
+      - name: TypeScript
+        run: pnpm run typecheck
+      - name: Lint
+        run: pnpm run lint
+      - name: Tests
+        run: pnpm test
+
   build:
     name: Build
     runs-on: ubuntu-24.04-arm
@@ -113,6 +145,14 @@ jobs:
             fi
           done
           echo "public directory is ready: public"
+      # The rulesets of this build, and not the ones that are committed: an upstream list can bring a line that Surge does not
+      # take, a file that is cut short, or an overlap that changes which ruleset a request matches first, with no change of the
+      # source. A failure stops the job here, so that nothing is uploaded and the deploy job does not run: the rulesets that are
+      # published stay the ones of the last build that passed.
+      - name: Check the output
+        run: pnpm run check-output
+        env:
+          SURGE_LIST_DIR: public/List
       # Upload artifact and save cache.db in parallel
       - uses: actions/upload-artifact@v7
         id: upload_build_artifact
@@ -135,6 +175,7 @@ jobs:
 
   deploy:
     needs:
+      - check
       - build
     name: Deploy
     if: github.ref == 'refs/heads/master'
