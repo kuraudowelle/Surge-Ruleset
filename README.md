@@ -195,6 +195,8 @@ From the first to the last. A priority only shows when your policies differ: wit
 
 Which ruleset a request matches first, for hosts where the order decides. The table names the process too, because rules for processes depend on placement: the same hostname can match another ruleset from another process. The request viewer of Surge shows the rule that a request matched, so you can look at your own profile the same way.
 
+`pnpm test` asserts every row, and more, in [`Build/lib/readme-routing.test.ts`](Build/lib/readme-routing.test.ts): it reads the Rule section of this file and the published rulesets, and asserts which ruleset matches first, whatever the policies are. It simulates `DOMAIN`, `DOMAIN-SUFFIX`, `DOMAIN-KEYWORD`, `DOMAIN-WILDCARD` (and the lines of a `DOMAIN-SET`), `PROCESS-NAME`, `USER-AGENT`, `PROTOCOL`, `DEST-PORT`, `SRC-IP`, `IP-CIDR`, `IP-CIDR6`, `AND`, `OR` and `NOT`. It does not evaluate `URL-REGEX` and `IP-ASN`, which some rulesets have, and it does not resolve DNS or look at the TLS SNI and the Host header (`extended-matching`): a request only has what the test gives it. The header of [`Build/lib/surge-rules.ts`](Build/lib/surge-rules.ts) has the details.
+
 | Host | From | Matches first | Other rulesets that have it, or the one it is inside |
 | --- | --- | --- | --- |
 | `music.youtube.com` | any | `youtubemusic.conf` | a part of YouTube; Streaming and Google have it too |
