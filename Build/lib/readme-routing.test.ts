@@ -7,14 +7,15 @@ import { split0th } from 'foxts/split-nth';
 
 import { ROOT_DIR } from '../constants/dir';
 import { KNOWN_UNSUPPORTED_RULE_TYPES, LIST_DIR, readList } from './published-lists';
-import { RuleSet, SUPPORTED_RULE_TYPES, allMatches, firstMatch } from './surge-rules';
+import { RuleSet, SUPPORTED_RULE_TYPES, allMatches, firstMatch, leavesOf } from './surge-rules';
 import type { OrderedRuleSet, Request } from './surge-rules';
 import { parseCheckTable, parsePolicies, parseProxyGroups, parseRuleSection } from './readme-rule-section';
 import type { RuleSection, RuleSectionEntry } from './readme-rule-section';
 
 const BUILT_IN_POLICIES = new Set(['DIRECT', 'REJECT', 'REJECT-DROP', 'REJECT-NO-DROP']);
 
-const rAddressRule = /^IP-CIDR6?,/;
+/** A line that can have a rule for an address: one that is such a rule, or a logical rule, which can hold one */
+const rAddressOrLogicalRule = /^(?:IP-CIDR6?|AND|OR|NOT),/;
 
 interface Probe {
   request: Request,
@@ -147,7 +148,7 @@ describe('the Rule section of the README', () => {
       expect(misplaced).toEqual([]);
     });
 
-    it('does not let a ruleset for hostnames resolve DNS: its rules for addresses say no-resolve', () => {
+    it('does not let a ruleset for hostnames resolve DNS: its rules for addresses say no-resolve, inside a logical rule as well', () => {
       const offenders: string[] = [];
       rulesets.forEach((ruleSet, name) => {
         if (name.startsWith('ip/')) {
@@ -155,8 +156,14 @@ describe('the Rule section of the README', () => {
         }
         const lines = readList(name).split('\n');
         for (let i = 0, len = lines.length; i < len; i++) {
-          if (rAddressRule.test(lines[i]) && !lines[i].endsWith(',no-resolve')) {
-            offenders.push(`${name}:${i + 1}: ${lines[i]}`);
+          if (!rAddressOrLogicalRule.test(lines[i])) {
+            continue;
+          }
+          const rules = leavesOf(lines[i]);
+          for (let j = 0, ruleCount = rules.length; j < ruleCount; j++) {
+            if ((rules[j].type === 'IP-CIDR' || rules[j].type === 'IP-CIDR6') && !rules[j].options.includes('no-resolve')) {
+              offenders.push(`${name}:${i + 1}: ${lines[i]}`);
+            }
           }
         }
       });
@@ -187,7 +194,7 @@ describe('the Rule section of the README', () => {
       }
     });
 
-    it('lists only rulesets whose rule types the simulation evaluates, or knows that it does not', () => {
+    it('lists only rulesets whose rule types the simulation evaluates, or knows that it does not, inside a logical rule as well', () => {
       const unknown: string[] = [];
       rulesets.forEach((ruleSet, name) => {
         ruleSet.types.forEach((type) => {
@@ -196,7 +203,7 @@ describe('the Rule section of the README', () => {
           }
         });
         ruleSet.unsupported.forEach((count, type) => {
-          if (type !== 'AND' && !KNOWN_UNSUPPORTED_RULE_TYPES.has(type)) {
+          if (!KNOWN_UNSUPPORTED_RULE_TYPES.has(type)) {
             unknown.push(`${name}: ${count} of ${type}`);
           }
         });

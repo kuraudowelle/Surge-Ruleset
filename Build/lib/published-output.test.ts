@@ -8,7 +8,8 @@ import { split0th } from 'foxts/split-nth';
 import { getCidrVersion } from './cidr-lines';
 import type { MTProtoDCConfig } from './mtproto-dc-config';
 import { INTERNAL_DIR, KNOWN_UNSUPPORTED_RULE_TYPES, listNames, readList } from './published-lists';
-import { RuleSet, SUPPORTED_RULE_TYPES } from './surge-rules';
+import { RuleSet, SUPPORTED_RULE_TYPES, leavesOf } from './surge-rules';
+import type { RuleLeaf } from './surge-rules';
 
 const BANNER = '#########################################';
 const END_OF_FILE = '################## EOF ##################';
@@ -31,6 +32,43 @@ interface ListFile {
   /** The lines of the file, without the line break that ends it */
   lines: string[],
   isDomainSet: boolean
+}
+
+const LOGICAL_TYPES: ReadonlySet<string> = new Set(['AND', 'OR', 'NOT']);
+const HOSTNAME_TYPES: ReadonlySet<string> = new Set(['DOMAIN', 'DOMAIN-SUFFIX']);
+const ADDRESS_TYPES: ReadonlySet<string> = new Set(['IP-CIDR', 'IP-CIDR6', 'SRC-IP']);
+
+/**
+ * Calls `visit` for every rule of the types that a check is about, in a file: the rules that stand by themselves, and
+ * the ones inside the logical rules, to any depth (a DOMAIN or an IP-CIDR that stands inside an AND is a rule of the
+ * file). Only the lines that can have one are read, which are those of the types and the logical ones: the lists have
+ * hundreds of thousands of lines. A line that cannot be read is left for the test of what can be read, which says
+ * what is wrong with it.
+ */
+function forEachRule(file: ListFile, types: ReadonlySet<string>, visit: (rule: RuleLeaf, line: number, text: string) => void) {
+  for (let i = 0, len = file.lines.length; i < len; i++) {
+    const text = file.lines[i];
+    const comma = text.indexOf(',');
+    if (comma === -1) {
+      continue;
+    }
+    const type = text.slice(0, comma);
+    if (!types.has(type) && !LOGICAL_TYPES.has(type)) {
+      continue;
+    }
+
+    let rules: RuleLeaf[];
+    try {
+      rules = leavesOf(text);
+    } catch {
+      continue;
+    }
+    for (let j = 0, ruleCount = rules.length; j < ruleCount; j++) {
+      if (types.has(rules[j].type)) {
+        visit(rules[j], i + 1, text);
+      }
+    }
+  }
 }
 
 /** What is wrong with the way that a file is put together, or null: a write that was cut short leaves a file without its end */
@@ -102,7 +140,7 @@ describe('the rulesets that the build published', () => {
     expect(problems).toEqual([]);
   });
 
-  it('is made of lines that a Surge ruleset can hold, of rule types that the simulation evaluates, or knows that it does not', () => {
+  it('is made of lines that a Surge ruleset can hold, of rule types that the simulation evaluates, or knows that it does not, inside a logical rule as well', () => {
     const unreadable: string[] = [];
     const unknown: string[] = [];
     for (let i = 0, len = files.length; i < len; i++) {
@@ -119,9 +157,9 @@ describe('the rulesets that the build published', () => {
           unknown.push(`${files[i].name}: ${type}`);
         }
       });
-      // a logical rule that holds a type it cannot evaluate is counted under AND, OR or NOT
+      // `types` has the ones inside a logical rule as well, and `unsupported` counts a type where it stands, inside or not
       ruleSet.unsupported.forEach((count, type) => {
-        if (type !== 'AND' && type !== 'OR' && type !== 'NOT' && !KNOWN_UNSUPPORTED_RULE_TYPES.has(type)) {
+        if (!KNOWN_UNSUPPORTED_RULE_TYPES.has(type)) {
           unknown.push(`${files[i].name}: ${count} of ${type}`);
         }
       });
@@ -130,48 +168,47 @@ describe('the rulesets that the build published', () => {
     expect(unknown).toEqual([]);
   });
 
-  it('has a hostname where a hostname goes: lowercase, with no wildcard, no scheme, no port and no dot at the end', () => {
+  it('has a hostname where a hostname goes: lowercase, with no wildcard, no scheme, no port and no dot at the end, inside a logical rule as well', () => {
     const offenders: string[] = [];
     for (let i = 0, len = files.length; i < len; i++) {
-      const { lines, name, isDomainSet } = files[i];
-      for (let j = 0, lineCount = lines.length; j < lineCount; j++) {
-        const text = lines[j];
-        let value: string | null = null;
-        if (isDomainSet) {
-          if (text.length > 0 && text[0] !== '#') {
-            // a dot in front of the hostname makes it a suffix
-            value = text[0] === '.' ? text.slice(1) : text;
+      const file = files[i];
+      if (file.isDomainSet) {
+        for (let j = 0, lineCount = file.lines.length; j < lineCount; j++) {
+          const text = file.lines[j];
+          // a dot in front of the hostname makes it a suffix
+          if (text.length > 0 && text[0] !== '#' && !rHostname.test(text[0] === '.' ? text.slice(1) : text)) {
+            offenders.push(`${file.name}:${j + 1}: ${text}`);
           }
-        } else if (text.startsWith('DOMAIN,')) {
-          value = text.slice('DOMAIN,'.length);
-        } else if (text.startsWith('DOMAIN-SUFFIX,')) {
-          value = text.slice('DOMAIN-SUFFIX,'.length);
         }
-
-        if (value !== null && !rHostname.test(value)) {
-          offenders.push(`${name}:${j + 1}: ${text}`);
-        }
+        continue;
       }
+
+      forEachRule(file, HOSTNAME_TYPES, (rule, line, text) => {
+        if (!rHostname.test(rule.value)) {
+          offenders.push(`${file.name}:${line}: ${rule.type},${rule.value} (in ${text})`);
+        }
+      });
     }
     expect(offenders).toEqual([]);
   });
 
-  it('has IP rules that are addresses or ranges of the family that their type says, and no option but no-resolve', () => {
+  it('has IP rules that are addresses or ranges of the family that their type says, and no option but no-resolve, inside a logical rule as well', () => {
     const offenders: string[] = [];
     for (let i = 0, len = files.length; i < len; i++) {
-      const { lines, name } = files[i];
-      for (let j = 0, lineCount = lines.length; j < lineCount; j++) {
-        const text = lines[j];
-        if (!text.startsWith('IP-CIDR,') && !text.startsWith('IP-CIDR6,')) {
-          continue;
+      const file = files[i];
+      forEachRule(file, ADDRESS_TYPES, (rule, line, text) => {
+        if (rule.type === 'SRC-IP') {
+          if (getCidrVersion(rule.value) === 0) {
+            offenders.push(`${file.name}:${line}: ${rule.type},${rule.value} (in ${text})`);
+          }
+          return;
         }
-        const parts = text.split(',');
-        const family = parts[0] === 'IP-CIDR' ? 4 : 6;
-        const optionsAreValid = parts.length === 2 || (parts.length === 3 && parts[2] === 'no-resolve');
-        if (!optionsAreValid || getCidrVersion(parts[1]) !== family) {
-          offenders.push(`${name}:${j + 1}: ${text}`);
+
+        const optionsAreValid = rule.options.length === 0 || (rule.options.length === 1 && rule.options[0] === 'no-resolve');
+        if (!optionsAreValid || getCidrVersion(rule.value) !== (rule.type === 'IP-CIDR' ? 4 : 6)) {
+          offenders.push(`${file.name}:${line}: ${[rule.type, rule.value, ...rule.options].join(',')} (in ${text})`);
         }
-      }
+      });
     }
     expect(offenders).toEqual([]);
   });
