@@ -1,4 +1,4 @@
-#!name=[Sukka] Surge Reject MITM
+#!name=[Surge Ruleset] Surge Reject MITM
 #!desc=Enable MITM for the URL Regex ruleset (size: 161)
 
 [MITM]

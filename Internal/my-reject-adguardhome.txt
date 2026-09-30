@@ -1,10 +1,10 @@
-! Title: Sukka's Ruleset - AdGuardHome Blocklist for Myself (Sukka)
-! Last modified: Tue, 29 Sep 2026 07:05:53 GMT
+! Title: Surge Ruleset - AdGuardHome Blocklist for Myself
+! Last modified: Wed, 30 Sep 2026 03:19:08 GMT
 ! Expires: 6 hours
-! License: https://github.com/SukkaW/Surge/blob/master/LICENSE
-! Homepage: https://github.com/SukkaW/Surge
+! License: https://github.com/kuraudowelle/Surge-Ruleset/blob/master/LICENSE
+! Homepage: https://github.com/kuraudowelle/Surge-Ruleset
 ! Description: 
-! $content-hash-v1$:m3Uc4EUFhEZ8Lqulyycc-OQxvm57MWwzkS-P1UdqRnQ$
+! $content-hash-v1$:jEloL-SOra-07In-ozgPu37lIqWjJ0UQsZJLagbtUB4$
 !
 ||pipi.cn^
 ||ule.com^

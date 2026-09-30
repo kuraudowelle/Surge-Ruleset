@@ -1,10 +1,9 @@
-! Title: [sukka] Sukka URL Redirect (SukkaW/Surge @ GitHub)
-! Last modified: Tue, 29 Sep 2026 07:05:49 GMT
+! Title: [Surge Ruleset] URL Redirect
+! Last modified: Wed, 30 Sep 2026 03:19:05 GMT
 ! Expires: 4 hours
 ! Description: Redirect requests via uritransform network filter syntax.
-! License: https://ruleset.skk.moe/LICENSE
-! Homepage: https://ruleset.skk.moe
-! GitHub: https://github.com/SukkaW/Surge
+! License: https://github.com/kuraudowelle/Surge-Ruleset/blob/master/LICENSE
+! Homepage: https://github.com/kuraudowelle/Surge-Ruleset
 
 ||cdn.staticfile.org/$all,urltransform=/cdn\.staticfile\.org\//cdnjs.cloudflare.com\/ajax\/libs\//
 ||cdn.staticfile.org/$all,uritransform=/cdn\.staticfile\.org\//cdnjs.cloudflare.com\/ajax\/libs\//
