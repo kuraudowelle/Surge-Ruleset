@@ -12,6 +12,8 @@ The ruleset files are served from this repository through `https://raw.githubuse
 
 The built files (`List/`, `Modules/`, `Mock/` and `Internal/`) are rebuilt by the [Build workflow](.github/workflows/main.yml) twice a day (05:17 and 17:17 UTC) and on every push to `master`, and the workflow commits the result back to `master`. Edit the sources in `Source/` and `Build/`, not the generated files. Hand-written modules and mocks live next to the generated ones in `Modules/` and `Mock/`. To delete a published file that is no longer generated, add it to `REMOVED_FILES` in [`build-deprecate-files.ts`](Build/build-deprecate-files.ts).
 
+The rulesets of the services and of the categories below (from Speedtest to Common Services in Other Countries and Regions) are made on every build of what the owner of a service publishes where there is something that a build can read, and of the lists that the community keeps ([v2fly/domain-list-community](https://github.com/v2fly/domain-list-community), downloaded as [the one file that v2fly builds of all its lists](https://github.com/v2fly/domain-list-community/tree/release)) where there is not. Nobody keeps their domains by hand. What no list of domains can carry (a process, a URL) is written by hand in a few short files, and the sections below name them.
+
 ## Ruleset List
 
 - **Surge (Mac/iOS/tvOS)**: Surge optimizes all types of rules to varying degrees
@@ -58,9 +60,11 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 #### Speedtest Domains
 
-- `speedtest.net` test points: the domains of speed test servers in dozens of common regions, fetched through the Speedtest API
-- Manually maintained domains of the speed test servers used by other speed test tools such as macOS `netQuality`
-- `fast.com` test points share infrastructure and domains with the Netflix CDN and would affect streaming traffic routing, so they are not included in this ruleset
+- Automatically generated
+- `speedtest.net` test points: the domains of speed test servers in dozens of common regions, fetched through the Speedtest API (a slice of the regions on each build, and the list keeps the domains of the earlier builds, so it grows)
+- The backend servers that [LibreSpeed](https://librespeed.org/backend-servers/servers.php) publishes, and the endpoints of macOS `networkQuality`, from [the configuration that Apple's tool downloads](https://mensura.cdn-apple.com/api/v1/gm/config)
+- The sites and servers of the other speed test tools (Cloudflare, M-Lab, OpenSpeedTest, nPerf, ...): [`category-speedtest`](https://github.com/v2fly/domain-list-community/blob/master/data/category-speedtest) of the community
+- `fast.com` itself is in the list, but its test points share infrastructure and domains with the Netflix CDN and would affect streaming traffic routing, so they are not included in this ruleset
 - Lets you run speed tests over a designated network egress without affecting normal internet access through the primary egress
 
 ```ini
@@ -69,20 +73,24 @@ DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/L
 
 #### Common Static CDNs
 
-- Automatically generated + manually maintained
-- Includes all common static resource CDN domains and object storage domains
+- Automatically generated
+- The CDNs that the community lists ([`category-cdn-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-cdn-!cn): jsDelivr, cdnjs, esm.sh, imgix, Bunny, Gcore, CDN77, ...) and the [public gateways of IPFS](https://github.com/ipfs/public-gateway-checker), which the IPFS project lists
+- Akamai, Cloudflare and Fastly are not in it, although the community lists them as CDNs. AbemaTV, DAZN, Bilibili International, Spotify and other services that have rulesets of their own are hosted on them, and this ruleset comes before theirs: a rule for a whole network would take their traffic away from them
+- The object storage domains are in [Large File Downloads](#large-file-downloads-software-updates-operating-systems-etc)
 - If you are using a commercial public proxy service and your provider offers nodes that bill traffic consumption at a low rate multiplier, you can use the rulesets above to route traffic to those nodes
 - Includes some domains that are not in `global.conf`, so even if you have no use for the low-rate nodes offered by commercial public proxy services and do not need to split this traffic, it is still recommended to use these rules; in that case, just assign them the same policy as `global.conf`
 
 ```ini
 DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/domainset/cdn.conf,[Replace with your policy]
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/cdn.conf,[Replace with your policy]
 ```
 
 #### Streaming
 
-- Manually maintained
-- Includes rulesets for 4gtv, AbemaTV, All4, Amazon Prime Video, Apple TV, Apple Music TV, Bahamut, BBC, Bilibili Intl, DAZN, Deezer, Disney+, Discovery+, DMM, encoreTVB, Fox Now, Fox+, HBO GO/Now/Max/Asia, Hulu, HWTV, JOOX, Jwplayer, KKBOX, KKTV, Line TV, Naver TV, myTV Super, Netflix, niconico, Now E, Paramount+, PBS, Peacock, Pandora, PBS, Pornhub, SoundCloud, PBS, Spotify, TaiwanGood, Tiktok Intl, Twitch, ViuTV, ShowTime, iQiYi Global, Himalaya Podcast, Overcast, and WeTV
+- Automatically generated on every build: each service is made of the list that the community keeps for it ([v2fly/domain-list-community](https://github.com/v2fly/domain-list-community/tree/master/data)), and the addresses of Netflix are the ones that its owner announces itself (AS2906, which [RIPEstat](https://stat.ripe.net/docs/02.data-api/announced-prefixes.html) lists). [`Source/stream.ts`](Source/stream.ts) says which list is which service, and which region a service belongs to
+- Includes AbemaTV, Amazon Prime Video, Apple TV, Bahamut, BBC, Bilibili Intl, DAZN, Deezer, Disney+ (with Hulu, ESPN, Hotstar, ...), Discovery+, DMM, HBO, Hulu, iQiYi Global, KKBOX, KKTV, Line TV, LiTV, myTV Super, Netflix, niconico, NHK, PBS, Pluto TV, Pornhub, SHOWTIME, SoundCloud, Spotify, TIDAL, Tubi TV, TVer, Twitch, and Viu / ViuTV
+- A service is only in it if the community has a list that is about that service and nothing else. There is none for 4gtv, All4, Apple Music TV, Crackle, encoreTVB, Fox Now, Fox+, Friday, Himalaya, Hulu Japan (the list of Hulu has `hulu.jp`, and not the rest of it), HWTV, ITV, JOOX, MangaFox, My5, Naver TV, Now E, Overcast, Pandora, Paramount+, Peacock, TaiwanGood, TVB Anywhere, Vudu and WeTV, so they are not in these rulesets. The lists of a whole company (Fox, Naver, CBS, NBCUniversal, TVB) would send all of the company to the policy of a streaming service. `USER-AGENT` and `PROCESS-NAME` rules of apps are not in them either: no list carries them
+- YouTube, YouTube Music and TikTok have rulesets of their own (below), they are not in these
+- No service of South Korea is left, so `stream_kr` is empty
 
 ```ini
 # Non IP
@@ -92,7 +100,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/stream_eu.conf,[Replace with your policy]
 # Japan-related streaming services
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/stream_jp.conf,[Replace with your policy]
-# South Korea-related streaming services
+# South Korea-related streaming services (none at the moment)
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/stream_kr.conf,[Replace with your policy]
 # Hong Kong-related streaming services
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/stream_hk.conf,[Replace with your policy]
@@ -110,7 +118,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/stream_eu.conf,[Replace with your policy]
 # Japan-related streaming services
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/stream_jp.conf,[Replace with your policy]
-# South Korea-related streaming services
+# South Korea-related streaming services (none at the moment)
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/stream_kr.conf,[Replace with your policy]
 # Hong Kong-related streaming services
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/stream_hk.conf,[Replace with your policy]
@@ -122,8 +130,9 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 #### AI
 
-- Domain and IP rules, manually maintained + automatically updated
-- Includes OpenAI, Google Gemini, Claude, Perplexity, and more
+- Domain rules: automatically generated from the list that the community keeps for the AI services that are not in mainland China ([`category-ai-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-ai-!cn): OpenAI, Claude, Gemini, Perplexity, Grok, Copilot, Cursor, Mistral, and more), plus the one rule that no list of domains can carry, the page that the site of Gemini sends a client to when it does not like its IP address (it needs MITM on `www.google.com`, see [`Source/non_ip/ai.conf`](Source/non_ip/ai.conf))
+- IP rules: automatically generated from the ranges of ChatGPT Voice that OpenAI [publishes itself](https://openai.com/chatgpt-voice.json)
+- `apple_intelligence.conf`: automatically generated from [`apple-intelligence`](https://github.com/v2fly/domain-list-community/blob/master/data/apple-intelligence) of the community
 
 ```ini
 # Non IP
@@ -162,7 +171,7 @@ Why the others are community lists: no list of their domains that a build can re
 
 > The rulesets overlap (`google.conf` has YouTube and the Google AI products, `gemini.conf` has Antigravity, `homebrew.conf` has hosts of GitHub), and a connection follows the first rule that matches, so put the more specific rulesets first, as below.
 >
-> The lists of the owners are made for networks that have to allow a service, and the lists of the community for routing it, so they do not have to agree. GitHub says that its own are not exhaustive. Both can be narrower than the hand-written rules of this project (`global.conf`, `stream.conf`, `ai.conf`), which stay as they are. `USER-AGENT` and `URL-REGEX` rules cannot come from a list of domains either.
+> The lists of the owners are made for networks that have to allow a service, and the lists of the community for routing it, so they do not have to agree. GitHub says that its own are not exhaustive. `USER-AGENT`, `PROCESS-NAME` and `URL-REGEX` rules cannot come from a list of domains either.
 >
 > A service whose data is gone or empty does not hold back the other rulesets: its file stays as the last build left it, and the build log says so (on GitHub Actions also as a warning on the workflow run). The build asks GitHub without a token unless `GITHUB_TOKEN` is set, which the workflow does to stay clear of the 60 requests an hour of an anonymous client.
 
@@ -242,7 +251,10 @@ DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/L
 
 #### Apple Service
 
-- Manually maintained
+- Automatically generated
+- Domains: the list that the community keeps for Apple ([`apple`](https://github.com/v2fly/domain-list-community/blob/master/data/apple), which includes iCloud, iTunes, Apple Music, Apple TV+, the developer and software update domains, ...), without the entries that it marks as hosted in mainland China (they are in Apple CN below). Apple documents its domains for admins to read, not in a form that a build can read
+- Addresses: the ones that Apple announces itself, from AS714 and AS6185, as [RIPEstat](https://stat.ripe.net/docs/02.data-api/announced-prefixes.html) sees them
+- The system processes of Apple that connect without a domain, which no list can carry, are written by hand in [`Source/non_ip/apple_services.conf`](Source/non_ip/apple_services.conf)
 
 ```ini
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/apple_services.conf,[Replace with your policy]
@@ -250,8 +262,8 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 #### Apple CN
 
-- Manually maintained
-- Domains of services such as Cloud Guizhou (`icloud.com.cn`) and the mainland-China-only edition of Apple Maps.
+- Automatically generated
+- The part of the same list that the community marks as hosted in mainland China (`@cn`): Cloud Guizhou (`icloud.com.cn`), the mainland-China-only edition of Apple Maps, the App Store of mainland China, and more
 
 ```ini
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/apple_cn.conf,DIRECT
@@ -277,7 +289,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 - Automatically generated
 - This ruleset contains the domains of Microsoft that have completed the MIIT ICP filing and the public security network filing in the People's Republic of China and provide HTTP services within the People's Republic of China. If for some reason you need to proxy some of these domains, write your own rules for those domains and add them before this ruleset.
-- Data source: [`felixonmars/dnsmasq-china-list`](https://github.com/felixonmars/dnsmasq-china-list/blob/master/apple.china.conf)
+- Data source: [`felixonmars/dnsmasq-china-list`](https://github.com/felixonmars/dnsmasq-china-list/blob/master/accelerated-domains.china.conf)
 
 ```ini
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/microsoft_cdn.conf,[Replace with your policy]
@@ -285,42 +297,31 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 #### Microsoft
 
-- Manually maintained
+- Automatically generated from the list that the community keeps for Microsoft ([`microsoft`](https://github.com/v2fly/domain-list-community/blob/master/data/microsoft): Office 365, OneDrive, Outlook, Xbox, Bing, Azure, Windows Update, ...), without the entries that it marks as hosted in mainland China, and without GitHub, which has a ruleset of its own above
+- Microsoft publishes the endpoints of Microsoft 365 for admins to read, but they only hold Microsoft 365, and they add the domains of the certificate authorities that it needs, which are not Microsoft's to route. The domains of Teams, which Microsoft does publish, are in the ruleset above
 
 ```ini
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/microsoft.conf,[Replace with your policy]
 ```
 
-#### NetEase Cloud Music
-
-- Manually maintained
-
-```ini
-# Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/neteasemusic.conf,[Replace with your policy]
-```
-
-```ini
-# IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/neteasemusic.conf,[Replace with your policy]
-```
-
 #### Large File Downloads (Software Updates, Operating Systems, etc.)
 
-- Manually maintained
-- Includes the domains of some common object storage services
+- Automatically generated
+- Object storage: the domains that the providers register in the [Public Suffix List](https://publicsuffix.org/) for their buckets (Amazon S3, Scaleway, Sakura)
+- What the community keeps for the downloads of game platforms (Steam, Epic, Blizzard, Riot, Xbox, PlayStation, Nintendo, ...), for the software updates of Apple devices that Apple documents, and for the registries of containers (Docker Hub, GHCR, Quay, ...). The CDNs of the game platforms inside mainland China are left out, they are for `domestic`
+- Mirrors and package registries that nobody lists in one place (Linux distribution mirrors, npm, PyPI, ...) are not in it
 - These domains may include Microsoft and Apple CDN nodes inside mainland China. You can use them together with the Microsoft CDN and Apple CDN rulesets above and assign the direct policy.
 - If you are using a commercial public proxy service and your provider offers nodes that bill traffic consumption at a low rate multiplier, you can use the rulesets above to route traffic to those nodes
 
 ```ini
 DOMAIN-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/domainset/download.conf,[Replace with your policy]
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/download.conf,[Replace with your policy]
 ```
 
 #### Intranet Domains and LAN IPs
 
-- Manually maintained
-- The domain list contains `.local` and the `in-addr.arpa` domains of LAN IPs (i.e., AS112 domains). These domains are generally resolved to LAN IPs, need to be resolved by the internal DNS, and need to be accessed directly.
+- Automatically generated
+- Domains: the list that the community keeps for private networks ([`private`](https://github.com/v2fly/domain-list-community/blob/master/data/private)). It follows the IANA registries of the special-use domain names and of the locally-served DNS zones, and adds the names that routers and local tools answer for. It contains `.local` and the `in-addr.arpa` domains of LAN IPs (i.e., AS112 domains). These domains are generally resolved to LAN IPs, need to be resolved by the internal DNS, and need to be accessed directly.
+- IPs: the ranges that the community keeps for addresses that are not on the internet ([`private.txt`](https://github.com/v2fly/geoip/blob/release/text/private.txt)), without `198.18.0.0/15`, which Surge and other tools use for virtual IPs
 
 ```ini
 # Non IP
@@ -334,31 +335,18 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 #### Common Mainland China Services
 
-- Manually maintained
+- Automatically generated from the list that the community keeps for the domains of mainland China ([`cn`](https://github.com/v2fly/domain-list-community/blob/master/data/cn): its services, the `.cn` domains, and what the lists of foreign companies mark as hosted there), and the domains that the Local DNS Mapping module of this project gives a DNS to ([`Source/non_ip/domestic.ts`](Source/non_ip/domestic.ts))
+- For matching by IP address, use the [chnroute CIDR](#chnroute-cidr) ruleset below
 
 ```ini
-# Inside mainland China (the most common scenario): only domestic needs to be configured, and DIRECT is enough
-# Non IP
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/domestic.conf,DIRECT
-
-# IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/domestic.conf,DIRECT
-```
-
-```ini
-# In other countries and regions, when you need a back-to-China node to access mainland China services: domestic_cdn goes direct first, and domestic uses the back-to-China node
-# Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/domestic_cdn.conf,DIRECT
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/domestic.conf,Back To China Proxy
-
-# IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/ip/domestic.conf,Back To China Proxy
 ```
 
 #### Services That Should Go Direct
 
-- Manually maintained
-- Includes hotspot authentication (captive portal) pages, PT sites, process names of download tools and proxy tools, LAN cache services, academic databases, and other services that should be accessed directly wherever you are
+- Automatically generated
+- PT sites ([`category-pt`](https://github.com/v2fly/domain-list-community/blob/master/data/category-pt)), academic publishers and databases ([`category-scholar-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-scholar-!cn) and [`category-scholar-cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-scholar-cn)) and Xunlei, from the lists of the community, and the hotspot authentication (captive portal) pages and the pages of routers that the Local DNS Mapping module of this project knows ([`Source/non_ip/direct.ts`](Source/non_ip/direct.ts))
+- The process names of proxy tools and download tools, which no list of domains can carry, are written by hand in [`Source/non_ip/direct.conf`](Source/non_ip/direct.conf)
 - Just use DIRECT
 
 ```ini
@@ -368,21 +356,12 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 
 #### Common Services in Other Countries and Regions
 
-- Manually maintained
-- Includes common services from other countries and regions, such as Google, Reddit, Facebook, Twitter, Discord, and GitHub, that cannot be accessed directly from within mainland China or that offer a poor experience when accessed directly, as well as a batch of ccTLDs and gTLDs of other countries and regions
-- **The vast majority of users are located in mainland China; for these rules, just use a proxy**
-- You only need to set these rules to direct if you are located in another country or region, only need a back-to-China node to access mainland China services, and send all other traffic direct (in which case your `FINAL` / `MATCH` is usually direct as well)
+- Automatically generated from the lists that the community keeps: [`geolocation-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/geolocation-!cn), the common services from other countries and regions, such as Google, Reddit, Facebook, Twitter, Discord, and GitHub, and [`tld-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/tld-!cn), the ccTLDs and gTLDs of other countries and regions
+- For these rules, just use a proxy
 
 ```ini
-# Inside mainland China (the most common scenario): use a proxy
 # Non IP
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/global.conf,Proxy
-```
-
-```ini
-# In other countries and regions, when you only need a back-to-China node to access mainland China services: DIRECT is enough
-# Non IP
-RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/global.conf,DIRECT
 ```
 
 #### chnroute CIDR

@@ -1,20 +1,24 @@
+import path from 'node:path';
 import process from 'node:process';
-import { extractErrorMessage } from 'foxts/extract-error-message';
+import { exclude, merge } from 'fast-cidr-tools';
 
 import { SHARED_DESCRIPTION } from './constants/description';
-import { DomainListCommunityResolver } from './lib/domain-list-community';
+import { SOURCE_DIR } from './constants/dir';
+import { fetchAnnouncedPrefixes, RIPESTAT_ANNOUNCED_PREFIXES_URL } from './lib/announced-prefixes';
+import { parseCidrLines } from './lib/cidr-lines';
+import { resolveCommunityLists } from './lib/community-lists';
+import type { CommunitySelection } from './lib/community-lists';
 import { $$fetch, ResponseError } from './lib/fetch-retry';
-import { fetchRemoteTextLines } from './lib/fetch-text-by-line';
+import { fetchRemoteTextLines, readFileIntoProcessedArray } from './lib/fetch-text-by-line';
 import { parseGitHubMeta } from './lib/github-meta';
 import type { GitHubMetaRules } from './lib/github-meta';
 import { parseGoogleIpRanges, subtractGoogleCloudRanges } from './lib/google-ip-ranges';
 import { parseHomebrewDefaultEndpoints } from './lib/homebrew-endpoints';
+import { reportRulesetFailure } from './lib/report-failure';
 import { RulesetOutput } from './lib/rules/ruleset';
 import { SpanCategory, task } from './trace';
 import type { Span } from './trace';
 
-/** v2fly's community lists: geosite:<list>, and the rulesets derived from it, are generated from these files (see also Build/build-telegram.ts) */
-const DOMAIN_LIST_COMMUNITY_DATA_URL = 'https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/';
 /** What GitHub publishes for its domains and its IP addresses: https://docs.github.com/en/rest/meta/meta */
 const GITHUB_META_URL = 'https://api.github.com/meta';
 /** Homebrew defines the hosts that it connects to in its own source code */
@@ -24,6 +28,12 @@ const GOOGLE_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/goog.json';
 const GOOGLE_CLOUD_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/cloud.json';
 /** The two that a build must not be without: Homebrew does not work without its API and its bottles */
 const REQUIRED_HOMEBREW_ENDPOINTS = ['HOMEBREW_API_DEFAULT_DOMAIN', 'HOMEBREW_BOTTLE_DEFAULT_DOMAIN'];
+/** The autonomous systems of Apple, which announce all of its address space: Apple Engineering, and Apple Austin */
+const APPLE_ASNS = [714, 6185];
+/** The IP ranges that the community keeps for addresses that are not on the internet, next to its list of domains for them */
+const PRIVATE_IP_RANGES_URL = 'https://raw.githubusercontent.com/v2fly/geoip/release/text/private.txt';
+/** Surge and the other tools of this kind give their virtual IPs out of it (Surge's own is 198.18.0.1/16), and no list of a ruleset held it before */
+const VIRTUAL_IP_RANGE = '198.18.0.0/15';
 
 /** What a ruleset is made of, and what the file says about where that comes from */
 interface ServiceRules {
@@ -31,6 +41,14 @@ interface ServiceRules {
   hostnames: string[],
   cidr4: string[],
   cidr6: string[],
+  /**
+   * Whether the ranges are written with `no-resolve`, which is what a service wants: its domains are the rules
+   * that catch it, and the ranges only catch what connects by IP. The ranges of a LAN are the opposite, they are
+   * there to catch a name that the rules did not know and that turns out to be one of the LAN.
+   */
+  noResolve?: boolean,
+  /** Rules that a list of domains or of ranges cannot carry (a process, a URL), as a ruleset has them: the lines of a file that is kept by hand */
+  lines?: string[],
   /** Where the data is downloaded from */
   sources: string[],
   /** Said in the file, below what the ruleset is for: how the data was turned into rules, and what to know about it */
@@ -48,52 +66,57 @@ interface ServiceRuleset {
   load: (span: Span) => Promise<ServiceRules>
 }
 
-const rAdsLine = /\s@ads(?:\s|$)/i;
-
 function createRules(rules: Partial<ServiceRules> & Pick<ServiceRules, 'sources' | 'notes'>): ServiceRules {
   return { suffixes: [], hostnames: [], cidr4: [], cidr6: [], ...rules };
 }
 
 // The state stays above the task: run as a script, a task starts the moment it is defined.
-// The lists are downloaded once for all services, which overlap (google includes youtube and gemini, and so on).
-const resolver = new DomainListCommunityResolver(list => fetchRemoteTextLines(DOMAIN_LIST_COMMUNITY_DATA_URL + list));
+// The lists of the community are downloaded once for all rulesets, which overlap (google includes youtube and
+// gemini, the AI lists include gemini, and so on): see resolveCommunityLists.
 // Both the domains and the IP addresses of GitHub are made from the same response
 let gitHubMetaPromise: Promise<GitHubMetaRules> | undefined;
+
+/**
+ * Makes rules of what the community keeps in its lists: what a service does not publish in a form that a build
+ * can read (its owner has a list of hostnames for admins to read at best), and what groups many services (AI, ...).
+ *
+ * `notes` say why this file is made of them. The rest of what the file says about the lists is the same for all.
+ */
+async function getCommunityRules(span: Span, selections: ReadonlyArray<string | CommunitySelection>, notes: string[]): Promise<ServiceRules> {
+  const resolved = await resolveCommunityLists(span, selections);
+
+  // what is not an ad, and could not be taken (`regexp:`), is worth knowing
+  if (resolved.unsupported.length > 0) {
+    console.log('[service rulesets]', `${resolved.sources.map(source => source.slice(source.lastIndexOf('/') + 1)).join(', ')}: skipped`, resolved.unsupported);
+  }
+
+  return createRules({
+    suffixes: resolved.suffixes,
+    hostnames: resolved.hostnames,
+    sources: resolved.sources,
+    notes: [
+      ...notes,
+      'Entries that the list marks as ads (@ads) are left out.'
+    ]
+  });
+}
 
 /**
  * The list of the community, for a service that publishes none: its owner has a list of hostnames
  * for admins to read at best, and no list that a build could.
  */
 function loadCommunityList(list: string, select?: (hostname: string) => boolean): ServiceRuleset['load'] {
-  return async (span) => {
-    const resolved = await span.traceChildAsync(
-      `get ${list}`,
-      () => resolver.resolve(list),
-      SpanCategory.Network
-    );
+  return span => getCommunityRules(span, [{ list, select }], [
+    'The service publishes no list of its domains that a build could read, so this file is made from the list that the community keeps.'
+  ]);
+}
 
-    // what is not an ad, and could not be taken (`keyword:`, `regexp:`), is worth knowing
-    const unsupported = resolved.skipped.filter(line => !rAdsLine.test(line));
-    if (unsupported.length > 0) {
-      console.log('[service rulesets]', `${list}: skipped`, unsupported);
-    }
-
-    const notes = [
-      'The service publishes no list of its domains that a build could read, so this file is made from the list that the community keeps.',
-      'Entries that the list marks as ads (@ads) are left out.'
-    ];
-    // the first one is the list itself
-    if (select === undefined && resolved.lists.length > 1) {
-      notes.push('', `The list includes other lists, which are part of this file: ${resolved.lists.slice(1).join(', ')}.`);
-    }
-
-    return createRules({
-      suffixes: select ? resolved.suffixes.filter(select) : resolved.suffixes,
-      hostnames: select ? resolved.full.filter(select) : resolved.full,
-      sources: [DOMAIN_LIST_COMMUNITY_DATA_URL + list],
-      notes
-    });
-  };
+/**
+ * What stays written by hand, in a file next to the sources, because no list carries it: a process is not
+ * a domain, nor is a URL. A file of this kind says `# $ custom_build_script`, which keeps it from being a ruleset of its own.
+ */
+function readSupplement(file: string): Promise<string[]> {
+  return readFileIntoProcessedArray(path.join(SOURCE_DIR, file));
 }
 
 function requestGitHubMeta(token?: string) {
@@ -218,7 +241,164 @@ async function loadGoogleIps(span: Span) {
   });
 }
 
+/** What is written by hand next to what is generated, and the file says so: where, and why no list of domains could carry it */
+function withSupplement(rules: ServiceRules, lines: string[], file: string, what: string): ServiceRules {
+  if (lines.length === 0) {
+    return rules;
+  }
+
+  const count = lines.length === 1 ? 'One rule is' : `${lines.length} rules are`;
+  return { ...rules, lines, notes: [...rules.notes, '', `${count} written by hand (${file}), because no list of domains can carry ${what}.`] };
+}
+
+async function loadAi(span: Span) {
+  const [rules, lines] = await Promise.all([
+    getCommunityRules(span, ['category-ai-!cn'], [
+      'There are many AI services and none of them publishes a list of its domains that a build could read, so this file is made from the list that the community keeps for the AI services that are not in mainland China.'
+    ]),
+    readSupplement('non_ip/ai.conf')
+  ]);
+
+  return withSupplement(rules, lines, 'Source/non_ip/ai.conf', 'a URL: the page that the site of Gemini sends a client to when it does not like its IP address, which only matches with MITM on www.google.com');
+}
+
+// Both the domains and the addresses of Apple are made from the same answer
+let applePrefixesPromise: ReturnType<typeof fetchAnnouncedPrefixes> | undefined;
+
+function getApplePrefixes(span: Span) {
+  applePrefixesPromise ??= span.traceChildAsync('get the prefixes of Apple', () => fetchAnnouncedPrefixes(APPLE_ASNS), SpanCategory.Network);
+  return applePrefixesPromise;
+}
+
+const APPLE_PREFIXES_NOTES = [
+  `The address space is what Apple announces itself, from its autonomous systems (${APPLE_ASNS.map(asn => `AS${asn}`).join(' and ')}), as RIPEstat sees it: ${RIPESTAT_ANNOUNCED_PREFIXES_URL}. The prefixes are merged, so a range that another one covers is not listed.`
+];
+
+async function loadAppleServices(span: Span) {
+  const [community, { cidr4, cidr6 }, lines] = await Promise.all([
+    getCommunityRules(span, [{ list: 'apple', ban: ['cn'] }], [
+      'Apple publishes no list of its domains that a build can read (what it documents is for admins to read), so the domains are made from the list that the community keeps.',
+      'The entries that the list marks as hosted in mainland China (@cn) are not in this file, they are in apple_cn.'
+    ]),
+    getApplePrefixes(span),
+    readSupplement('non_ip/apple_services.conf')
+  ]);
+
+  return withSupplement({
+    ...community,
+    cidr4,
+    cidr6,
+    sources: [...community.sources, RIPESTAT_ANNOUNCED_PREFIXES_URL],
+    notes: [...community.notes, '', ...APPLE_PREFIXES_NOTES, 'The ranges have no-resolve: they catch what connects by IP, and they never cause a lookup.']
+  }, lines, 'Source/non_ip/apple_services.conf', 'a process: the system processes of Apple that connect without a domain that the rules could know');
+}
+
+async function loadAppleIps(span: Span) {
+  const { cidr4, cidr6 } = await getApplePrefixes(span);
+
+  return createRules({ cidr4, cidr6, sources: [RIPESTAT_ANNOUNCED_PREFIXES_URL], notes: APPLE_PREFIXES_NOTES });
+}
+
+function loadAppleCn(span: Span) {
+  return getCommunityRules(span, [{ list: 'apple', must: ['cn'] }], [
+    'Apple publishes no list of its domains that a build can read, so this file is made from the list that the community keeps. It is the part of it that the list marks as hosted in mainland China (@cn): the services that Apple runs there for its users there.'
+  ]);
+}
+
+function loadAppleIntelligence(span: Span) {
+  return getCommunityRules(span, ['apple-intelligence'], [
+    'Apple publishes no list of the domains of Apple Intelligence that a build can read, so this file is made from the list that the community keeps.'
+  ]);
+}
+
+function loadMicrosoft(span: Span) {
+  return getCommunityRules(span, [{ list: 'microsoft', ban: ['cn'], skip: ['github'] }], [
+    'Microsoft publishes lists of the endpoints of its services for admins (https://learn.microsoft.com/en-us/microsoft-365/enterprise/microsoft-365-ip-web-service), but they only hold Microsoft 365 and they add the domains of the certificate authorities that it needs, which are not Microsoft\'s to route. So this file is made from the list that the community keeps for all of Microsoft. The domains of Microsoft Teams, which Microsoft does publish, are in the teams ruleset.',
+    'Two parts of that list are not in this file: the entries that it marks as hosted in mainland China (@cn), and the list of GitHub, which has a ruleset of its own (github).'
+  ]);
+}
+
+function loadLanDomains(span: Span) {
+  return getCommunityRules(span, ['private'], [
+    'The registries of IANA (special-use domain names, locally-served DNS zones) have the reserved names, but not the names that routers and local tools answer for. The list that the community keeps follows the registries, and adds those.'
+  ]);
+}
+
+async function loadLanIps(span: Span) {
+  const lines = await span.traceChildAsync('get the private IP ranges', () => fetchRemoteTextLines(PRIVATE_IP_RANGES_URL), SpanCategory.Network);
+  const { cidr4, cidr6 } = parseCidrLines(lines);
+
+  return createRules({
+    // the ranges are merged, and then the one that is not wanted is taken out of them
+    cidr4: merge(exclude(merge(cidr4), [VIRTUAL_IP_RANGE]), true),
+    cidr6: merge(cidr6, true),
+    noResolve: false,
+    sources: [PRIVATE_IP_RANGES_URL],
+    notes: [
+      'These are the ranges that the community keeps for the addresses that are not on the internet: private networks, loopback, link-local, multicast, documentation.',
+      `${VIRTUAL_IP_RANGE} is not in this file, although the list has it: Surge and other tools use it for virtual IPs.`,
+      'The ranges have no no-resolve: they are there for the name that the rules did not know, and that a lookup shows to be one of the LAN.'
+    ]
+  });
+}
+
 const RULESETS: readonly ServiceRuleset[] = [
+  {
+    id: 'ai',
+    type: 'non_ip',
+    name: 'AI',
+    description: ['This file contains domains used by AI services: OpenAI, Claude, Gemini, Perplexity, Grok, Copilot and more.'],
+    load: loadAi
+  },
+  {
+    id: 'apple_services',
+    type: 'non_ip',
+    name: 'Apple',
+    description: ['This file contains domains and addresses of Apple, Inc.'],
+    load: loadAppleServices
+  },
+  {
+    id: 'apple_services',
+    type: 'ip',
+    name: 'Apple',
+    description: ['This file contains IP ranges owned by Apple, Inc.'],
+    load: loadAppleIps
+  },
+  {
+    id: 'apple_cn',
+    type: 'non_ip',
+    name: 'Apple China',
+    description: ['This file contains domains of Apple, Inc that have host service specific for the Mainland China.'],
+    load: loadAppleCn
+  },
+  {
+    id: 'apple_intelligence',
+    type: 'non_ip',
+    name: 'Apple Intelligence',
+    description: ['This file contains domains that Apple Intelligence depends on.'],
+    load: loadAppleIntelligence
+  },
+  {
+    id: 'microsoft',
+    type: 'non_ip',
+    name: 'Microsoft',
+    description: ['This file contains domains of Microsoft.'],
+    load: loadMicrosoft
+  },
+  {
+    id: 'lan',
+    type: 'non_ip',
+    name: 'LAN',
+    description: ['This file contains the domains of the LAN: reserved TLDs, the reverse zones of the private addresses (AS112) and the names of routers.'],
+    load: loadLanDomains
+  },
+  {
+    id: 'lan',
+    type: 'ip',
+    name: 'LAN',
+    description: ['This file contains the IP ranges of the LAN and of the other addresses that are not on the internet.'],
+    load: loadLanIps
+  },
   {
     id: 'reddit',
     type: 'non_ip',
@@ -323,26 +503,30 @@ async function buildServiceRuleset(span: Span, ruleset: ServiceRuleset) {
     output.withDate(rules.date);
   }
 
-  return output
+  output
     .bulkAddDomainSuffix(rules.suffixes)
-    .bulkAddDomain(rules.hostnames)
-    .bulkAddCIDR4NoResolve(rules.cidr4)
-    .bulkAddCIDR6NoResolve(rules.cidr6)
-    .write();
+    .bulkAddDomain(rules.hostnames);
+
+  if (rules.noResolve === false) {
+    output.bulkAddCIDR4(rules.cidr4).bulkAddCIDR6(rules.cidr6);
+  } else {
+    output.bulkAddCIDR4NoResolve(rules.cidr4).bulkAddCIDR6NoResolve(rules.cidr6);
+  }
+
+  if (rules.lines) {
+    output.addFromRuleset(rules.lines);
+  }
+
+  return output.write();
 }
 
 function reportFailure(ruleset: ServiceRuleset, error: unknown) {
-  console.error(
-    '[service rulesets]',
-    `${ruleset.type}/${ruleset.id} was not written this time, a file of an earlier build is left as it is`,
+  reportRulesetFailure(
+    'service rulesets',
+    `${ruleset.type}/${ruleset.id}`,
+    `The ${ruleset.type === 'ip' ? 'IP ' : ''}ruleset of ${ruleset.name} was not updated`,
     error
   );
-
-  if (process.env.GITHUB_ACTIONS === 'true') {
-    // A build that stays green gets no other mark on the page of the run. https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions
-    const message = (extractErrorMessage(error, false) ?? 'unknown error').replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
-    console.log(`::warning title=The ${ruleset.type === 'ip' ? 'IP ' : ''}ruleset of ${ruleset.name} was not updated::${message}`);
-  }
 }
 
 /**
