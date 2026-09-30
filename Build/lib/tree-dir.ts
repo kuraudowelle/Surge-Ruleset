@@ -1,6 +1,5 @@
 import fsp from 'node:fs/promises';
 import { sep } from 'node:path';
-import type { VoidOrVoidArray } from './misc';
 
 // eslint-disable-next-line sukka/no-export-const-enum -- TODO: fix this in the future
 export const enum TreeFileType {
@@ -24,12 +23,16 @@ interface TreeDirectoryType {
 export type TreeType = TreeDirectoryType | TreeFile;
 export type TreeTypeArray = TreeType[];
 
+/**
+ * The files and directories below a directory. It resolves when the whole tree is read: every walk of a directory waits
+ * for the walks of the directories below it.
+ */
 export async function treeDir(rootPath: string): Promise<TreeTypeArray> {
   const tree: TreeTypeArray = [];
 
-  const promises: Array<Promise<VoidOrVoidArray>> = [];
+  const walk = async (dir: string, node: TreeTypeArray, dirRelativeToRoot = ''): Promise<void> => {
+    const walks: Array<Promise<void>> = [];
 
-  const walk = async (dir: string, node: TreeTypeArray, dirRelativeToRoot = ''): Promise<VoidOrVoidArray> => {
     for await (const child of await fsp.opendir(dir)) {
       // Ignore hidden files
       if (child.name[0] === '.' || child.name === 'CNAME') {
@@ -47,7 +50,7 @@ export async function treeDir(rootPath: string): Promise<TreeTypeArray> {
           children: []
         };
         node.push(newNode);
-        promises.push(walk(childFullPath, newNode.children, childRelativeToRoot));
+        walks.push(walk(childFullPath, newNode.children, childRelativeToRoot));
         continue;
       }
       if (child.isFile()) {
@@ -59,10 +62,11 @@ export async function treeDir(rootPath: string): Promise<TreeTypeArray> {
         node.push(newNode);
       }
     }
+
+    await Promise.all(walks);
   };
 
   await walk(rootPath, tree);
-  await Promise.all(promises);
 
   return tree;
 }
