@@ -166,13 +166,13 @@ Speedtest = select, Proxy, DIRECT
 
 Surge follows the first rule that matches and ignores all the ones after it ([Surge manual](https://manual.nssurge.com/rules/overview.html)), so where a line stands decides which ruleset a request matches, and the policy of that ruleset decides where the request goes. The order is a choice, not the only order that works: two rules give it its shape, and [the priorities](#the-priorities) below say what it chooses.
 
-**1. Rules for hostnames before IP rules.** `DOMAIN-SET` and `non_ip` rulesets do not trigger DNS resolution, `ip` rulesets do: Surge resolves the domain at the first IP rule it reaches. All the rules for hostnames have to stand in front of it, yours included (`DOMAIN`, `DOMAIN-SUFFIX` and `DOMAIN-KEYWORD` above, `IP-CIDR`, `IP-CIDR6`, `IP-ASN` and `GEOIP` below). `DOMAIN-SET` and `non_ip` rulesets both avoid DNS, so there is no order to keep between the two kinds, and the Rule section does not put `domainset` first: it orders them by what they contain, which is the second rule.
+**1. Rules for hostnames before IP rules.** `DOMAIN-SET` and `non_ip` rulesets never trigger DNS resolution. An IP rule (`IP-CIDR`, `IP-CIDR6`, `IP-ASN`, `GEOIP`) does, unless it has `no-resolve`: a request for a hostname is resolved at the first IP rule without `no-resolve` that it reaches, once, and the rules after it match the address. A rule with `no-resolve` is skipped by a request that has no address yet, and triggers nothing; on a `RULE-SET` line, `no-resolve` applies to every rule of the set ([rules and DNS](https://manual.nssurge.com/rules/overview.html), [`RULE-SET`](https://manual.nssurge.com/rules/ruleset.html)). In this Rule section the first IP ruleset, `ip/reject.conf`, has rules without `no-resolve`, so the lookup happens there, and all the rules for hostnames have to stand in front of it, yours included (`DOMAIN`, `DOMAIN-SUFFIX` and `DOMAIN-KEYWORD` above, `IP-CIDR`, `IP-CIDR6`, `IP-ASN` and `GEOIP` below). `DOMAIN-SET` and `non_ip` rulesets both avoid DNS, so there is no order to keep between the two kinds, and the Rule section does not put `domainset` first: it orders them by what they contain, which is the second rule.
 
 **2. Narrower before broader.** A host that is in two rulesets goes to the one that stands first. A ruleset that is a part of a bigger one stands in front of it, or its policy is never used: YouTube Music, YouTube and TikTok in front of Streaming; Antigravity and Gemini in front of AI and Google; GitHub in front of AI and Homebrew; Apple CDN and Apple CN in front of Apple Service; Microsoft Teams and Microsoft CDN in front of Microsoft; the regions in front of the list of all streaming services.
 
-If you place any `ip` ruleset, or your own `IP-CIDR`, `IP-CIDR6`, `IP-ASN`, and `GEOIP` rules, before any `domainset` or `non_ip` ruleset or any `DOMAIN`, `DOMAIN-SUFFIX`, and `DOMAIN-KEYWORD` rules you added yourself, **you will immediately lose the DNS pollution protection that Surge and this project provide, and you will be completely exposed to the GFW's DNS pollution.**
+An IP rule without `no-resolve` in front of rules for hostnames, whether an `ip` ruleset or an `IP-CIDR`, `IP-CIDR6`, `IP-ASN` or `GEOIP` rule of your own, makes your device resolve every hostname that reaches it, the ones that go to a proxy as well. **In mainland China the local DNS can answer them with polluted addresses:** such an address can match an IP rule that is not for the service, and a name that does not resolve fails the request, unless `FINAL` has `dns-failed`. Give such a rule `no-resolve`, or put it behind the rules for hostnames.
 
-> Surge matches rules one by one from top to bottom in the order they appear in the configuration, and DNS resolution is performed if and only when matching IP-type rules, FINAL, or the direct policy. Adding the rulesets in the order above avoids, as far as possible, your device issuing DNS resolution for domains that need to be proxied, thereby providing a degree of protection against the so-called "DNS pollution".
+In rule matching, Surge resolves a hostname at the first IP rule without `no-resolve` that the request reaches. After matching, a request that goes `DIRECT` is resolved on your device to connect, and a request that goes to a proxy is resolved by the proxy server (see `use-local-host-item-for-proxy` in the [manual](https://manual.nssurge.com/profile/general.html)). So with the order above, a hostname that a rule for hostnames sends to a proxy is not looked up on your device, and a polluted answer of the local DNS does not reach it.
 
 #### The Priorities
 
@@ -231,7 +231,7 @@ The automatic update never changes what is collected by hand, it adds to it: to 
 - **Surge (Mac/iOS/tvOS)**: Surge optimizes all types of rules to varying degrees
   - `/List/domainset/`: `DOMAIN-SET`, domain-only rulesets that do not trigger DNS resolution
   - `/List/non_ip/`: `RULE-SET`, rulesets that do not trigger DNS resolution
-  - `/List/ip/`: `RULE-SET`, rulesets that trigger DNS resolution
+  - `/List/ip/`: `RULE-SET`, rulesets of addresses: a line without `no-resolve` triggers DNS resolution
 
 ### Ad Blocking / Privacy Protection / Malware Blocking / Phishing Blocking
 
@@ -239,6 +239,7 @@ The automatic update never changes what is collected by hand, it adds to it: to 
 - For the data sources, the allowlist of domains, and how the list is generated, see [`build-reject-domainset.ts`](Build/build-reject-domainset.ts)
 - Recommended for Surge for Mac only; on mobile platforms, use a dedicated tool (such as AdGuard for Android/iOS) for better performance
 - **Not a replacement for browser ad-blocking extensions (such as AdGuard for Browser)**
+- `reject-no-drop.conf` is for `REJECT-NO-DROP`, which rejects at once (on UDP with ICMP) and is never upgraded to `REJECT-DROP` ([REJECT policies](https://manual.nssurge.com/policies/reject.html)). It has the P2P CDNs (PCDN) of mainland video and live-streaming services, and one rule more: `AND,((PROTOCOL,UDP), (DOMAIN-SUFFIX,googlevideo.com))` rejects UDP to YouTube's video servers, which turns off QUIC for YouTube video, so YouTube falls back to TCP at once. To keep QUIC for YouTube, put a rule of your own in front of the line of this ruleset, such as `AND,((PROTOCOL,UDP),(DOMAIN-SUFFIX,googlevideo.com)),YouTube`
 
 ### Speedtest Domains
 
