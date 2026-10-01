@@ -453,28 +453,6 @@ The ruleset files are served from this repository through `https://raw.githubuse
 
 The built files (`List/`, `Modules/`, `Mock/` and `Internal/`) are rebuilt by the [Build workflow](.github/workflows/main.yml) twice a day (05:17 and 17:17 UTC) and on every push to `master`, and the workflow commits the result back to `master`. Edit the sources in `Source/` and `Build/`, not the generated files. Hand-written modules and mocks live next to the generated ones in `Modules/` and `Mock/`. To delete a published file that is no longer generated, add it to `REMOVED_FILES` in [`build-deprecate-files.ts`](Build/build-deprecate-files.ts).
 
-## FAQ
-
-**What is this?**
-
-I don't know either.
-
-**Are there rulesets for Shadowrocket, Quantumult X, Loon, or V2RayNG?**
-
-No. And there **definitely** never will be.
-
-**I used your rulesets and something went wrong. How do I report it?**
-
-No, you can't.
-
-**Can I help maintain the project and fix issues, then?**
-
-If your Pull Request shows up in my GitHub Notification Inbox and I happen to see it, I will review it.
-
 ## License
 
 The `List/ip/china_ip.conf` file is licensed under [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/). The rest of the files are licensed under [AGPL-3.0](./LICENSE).
-
-----
-
-**Surge Ruleset** © [kuraudowelle](https://github.com/kuraudowelle), forked from [SukkaW/Surge](https://github.com/SukkaW/Surge) © [Sukka](https://github.com/SukkaW) and its [contributors](https://github.com/SukkaW/Surge/graphs/contributors).
