@@ -1,10 +1,10 @@
 ! Title: Surge Ruleset - AdGuardHome Blocklist
-! Last modified: Thu, 01 Oct 2026 03:58:02 GMT
+! Last modified: Thu, 01 Oct 2026 04:42:45 GMT
 ! Expires: 6 hours
 ! License: https://github.com/kuraudowelle/Surge-Ruleset/blob/master/LICENSE
 ! Homepage: https://github.com/kuraudowelle/Surge-Ruleset
 ! Description: The AdGuardHome ruleset supports AD blocking, tracking protection, privacy protection, anti-mining
-! $content-hash-v1$:dLt8nW2VFy6yq-lbkmurweiIcf87i4o6xEBHx5MHofI$
+! $content-hash-v1$:w8UXow9aqD3Hb8plLwkvNXJygnTTTyYoPmmNihbFBMA$
 !
 ||data^
 ||null^
@@ -24831,6 +24831,7 @@
 ||xldaurngxd.com^
 ||xlekg58lub.com^
 ||xljqqe.hsn.com^
+||xmbnaxqqkt.com^
 ||xmindchina.net^
 ||xml-api.online^
 ||xml.poprtb.pro^
@@ -27960,6 +27961,7 @@
 ||idhtm.bb.com.br^
 ||idlecollect.com^
 ||idss.joltnh.com^
+||iehmiqwudyc.com^
 ||if1j0ytgkypa.tk^
 |iflow.uczzd.com^
 |iflow.uczzd.net^
@@ -46465,6 +46467,7 @@
 ||ping.hashnode.com^
 ||pinierfriths.qpon^
 ||pionicmoroncy.cfd^
+||pipitsrupiah.cyou^
 ||piquantmeadow.com^
 ||piquantvortex.com^
 ||piratbaypirate.li^
@@ -56131,6 +56134,7 @@
 ||neowiv.brumbrum.it^
 ||nerbfgtsvzvgi.site^
 ||nertjokrhivep.site^
+||nervosafaculty.com^
 ||nest.economies.com^
 ||net.asambeauty.com^
 ||net.deine-arena.de^
@@ -61016,6 +61020,7 @@
 ||yepcag.mrmarvis.fr^
 ||ygofdxgqlnptp.site^
 ||ygpcwqvfagdge.site^
+||ygqxkdikvmxbm.site^
 ||yhjgjk.wemakeup.it^
 ||yhqoos.petmate.com^
 ||yhskfe.klipsch.com^
@@ -64511,6 +64516,7 @@
 ||ibrahim.boiache.com^
 ||icaubf.casamundo.de^
 ||icclient.rottne.com^
+||iccpqwimfgust.space^
 ||ichnaea.netflix.com^
 ||icliscrl.lilalou.pl^
 ||idealistic-bath.com^
@@ -72563,6 +72569,7 @@
 ||dhpjhrud.skisport.ie^
 ||dhpjhrud.skisport.pl^
 ||dhrubo.dhrubomart.bd^
+||dhyrdvvxrxjtn.online^
 ||di.spreadmorelove.ch^
 ||diagnostics.rakam.io^
 ||dialling-abutory.com^
@@ -113572,6 +113579,7 @@
 ||bdt.dermatologie-winkel.nl^
 ||beacon.watch.impress.co.jp^
 ||beacon.www.theguardian.com^
+||bebravecarbenestownet.qpon^
 ||beeline.beeline-tire.co.jp^
 ||beetle.enlacepermanente.es^
 ||beta.elitemalewellness.com^
