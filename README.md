@@ -32,7 +32,7 @@ RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/Lis
 # RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/reject-url-regex.conf,REJECT
 
 # ---- Never proxied
-# Local names; the exceptions that live inside bigger rulesets further down (captive.apple.com inside apple.com, Google Scholar inside google.com);
+# Local names; the exceptions that live inside bigger rulesets further down (captive.apple.com inside apple.com);
 # and the processes that must never be proxied (proxy tools, downloaders, ...), whatever host they talk to
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/lan.conf,DIRECT
 RULE-SET,https://raw.githubusercontent.com/kuraudowelle/Surge-Ruleset/master/List/non_ip/direct.conf,DIRECT
@@ -180,7 +180,7 @@ From the first to the last. A priority only shows when your policies differ: wit
 
 1. **`reject-drop`, then the blocklists.** Nothing overrides them. `reject-drop` is matched before every other rule, wherever it stands.
 2. **Direct and LAN: never proxied, and in front of every service.**
-   - Its hostnames are exceptions inside bigger rulesets: `captive.apple.com` is inside `apple.com`, Google Scholar inside `google.com`. A few university mirrors that Download lists too are inside academic domains that Direct lists, and go DIRECT.
+   - Its hostnames are exceptions inside bigger rulesets: `captive.apple.com` is inside `apple.com`. A few university mirrors that Download lists too are inside academic domains that Direct lists, and go DIRECT.
    - Its rules for processes (proxy tools, downloaders, `tailscaled`, ...) match by who is asking, not by the hostname, so they win over every service behind them: `api.github.com` from Safari matches GitHub, and from `aria2c` it matches Direct and goes DIRECT.
    - The rules for processes and apps in the other rulesets (`PROCESS-NAME`, `USER-AGENT`) have the priority of their ruleset, so an app can be taken by a ruleset in front of its own: a request of YouTube Music (`USER-AGENT,YouTubeMusic*`) to `i.ytimg.com` matches CDN, not YouTube Music. Surge matches `PROCESS-NAME` on the Mac only, and `USER-AGENT` on plain HTTP or with MITM.
 3. **Speedtest and CDN: in front of the services.** A host that one of them has and a service has too goes to Speedtest or CDN: `ytimg.com` goes to CDN, not to YouTube. So do the CloudFront hosts that streaming services list, because `cdn.conf` has the whole of `cloudfront.net`: DAZN's `d151l6v8er5bdm.cloudfront.net` matches CDN before Streaming. This is a choice, and it can matter: if CDN and Streaming use different countries, a streaming service can see one session from two of them. To let a service win, move its lines in front of the CDN lines, and change the tests of this repository with them.
@@ -213,7 +213,7 @@ The workflow of this repository runs it after every build, and before anything i
 | `formulae.brew.sh` | any | `homebrew.conf` | what Homebrew keeps |
 | `cn.ls.apple.com` | any | `apple_cn.conf` | inside `apple.com`, which Apple Service has |
 | `captive.apple.com` | any | `direct.conf` | inside `apple.com`, which Apple Service has |
-| `scholar.google.com` | any | `direct.conf` | inside `google.com`, which Google has |
+| `scholar.google.com` | any | `google.conf` | a part of `google.com`; Direct leaves Google Scholar out, as mainland China blocks Google |
 | `hulu.jp` | any | `stream_jp.conf` | Streaming has it too; North America does not, it is Japan only |
 | `d151l6v8er5bdm.cloudfront.net` | any | `cdn.conf` | Streaming has it too (DAZN); CDN is in front, by choice |
 
@@ -401,10 +401,10 @@ ipv6 = true
 ### Services That Should Go Direct
 
 - Automatically generated, plus what is collected by hand, which the update keeps
-- PT sites ([`category-pt`](https://github.com/v2fly/domain-list-community/blob/master/data/category-pt)), academic publishers and databases ([`category-scholar-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-scholar-!cn) and [`category-scholar-cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-scholar-cn)) and Xunlei, from the lists of the community, and the hotspot authentication (captive portal) pages and the pages of routers that the Local DNS Mapping module of this project knows ([`Source/non_ip/direct.ts`](Source/non_ip/direct.ts))
+- PT sites ([`category-pt`](https://github.com/v2fly/domain-list-community/blob/master/data/category-pt)), academic publishers and databases ([`category-scholar-!cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-scholar-!cn) and [`category-scholar-cn`](https://github.com/v2fly/domain-list-community/blob/master/data/category-scholar-cn), without Google Scholar and Z-Library: they give nothing by the IP of a campus, and mainland China blocks them) and Xunlei, from the lists of the community, and the hotspot authentication (captive portal) pages and the pages of routers that the Local DNS Mapping module of this project knows ([`Source/non_ip/direct.ts`](Source/non_ip/direct.ts))
 - Collected by hand ([`Source/non_ip/direct.conf`](Source/non_ip/direct.conf)): LAN cache services and other domains that no list has, and the process names of proxy tools and download tools, which no list of domains can carry
 - Just use DIRECT
-- The Rule section has it near the top, in front of the services: it holds exceptions inside them (`captive.apple.com` is inside `apple.com`, Google Scholar inside `google.com`) and the processes that must never be proxied
+- The Rule section has it near the top, in front of the services: it holds exceptions inside them (`captive.apple.com` is inside `apple.com`) and the processes that must never be proxied
 
 ### Common Services in Other Countries and Regions
 

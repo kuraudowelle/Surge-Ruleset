@@ -10,6 +10,7 @@ import type { Span } from './trace';
 import { SHARED_DESCRIPTION } from './constants/description';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { resolveCommunityLists } from './lib/community-lists';
+import type { CommunitySelection } from './lib/community-lists';
 import { createGetDnsMappingRule } from './lib/dns-mapping-rule';
 import { describeHandCollected, readHandCollected } from './lib/hand-collected';
 import type { HandCollected } from './lib/hand-collected';
@@ -28,8 +29,22 @@ const DOMESTIC_SELECTIONS = ['cn'];
 /**
  * What the community keeps for what should not be proxied: the PT sites (the trackers of a PT site ban an account
  * that shows up from two IPs), the academic publishers and databases (a campus gives access by its IP), and Xunlei.
+ *
+ * Two lists that the academic one includes are left out: Google Scholar, which is a part of google.com and goes with
+ * the Google ruleset, and Z-Library. Neither gives access by the IP of a campus, and mainland China blocks both, so
+ * going direct only breaks them there.
  */
-const DIRECT_SELECTIONS = ['category-pt', 'category-scholar-!cn', 'category-scholar-cn', 'xunlei'];
+const DIRECT_SELECTIONS: ReadonlyArray<string | CommunitySelection> = [
+  'category-pt',
+  { list: 'category-scholar-!cn', skip: ['google-scholar', 'z-library'] },
+  'category-scholar-cn',
+  'xunlei'
+];
+
+/** The name of the list that a selection asks for */
+function listName(selection: string | CommunitySelection): string {
+  return typeof selection === 'string' ? selection : selection.list;
+}
 
 interface DomainsRuleset {
   /** The lines of a ruleset */
@@ -40,11 +55,11 @@ interface DomainsRuleset {
   handCollected: HandCollected
 }
 
-async function getCommunityDomains(span: Span, selections: string[], handCollected: HandCollected): Promise<DomainsRuleset> {
+async function getCommunityDomains(span: Span, selections: ReadonlyArray<string | CommunitySelection>, handCollected: HandCollected): Promise<DomainsRuleset> {
   const { suffixes, hostnames, unsupported, sources } = await resolveCommunityLists(span, selections);
 
   if (unsupported.length > 0) {
-    console.log('[domestic & direct]', `${selections.join(', ')}: skipped ${unsupported.length} entries that a ruleset cannot take (regexp: and the like)`);
+    console.log('[domestic & direct]', `${selections.map(listName).join(', ')}: skipped ${unsupported.length} entries that a ruleset cannot take (regexp: and the like)`);
   }
 
   const lines: string[] = [];
@@ -142,7 +157,8 @@ export const buildDomesticRuleset = task(require.main === module, __filename)(as
         '',
         'This file contains domains and process that should not be proxied.',
         '',
-        `The domains are made of the lists that the community keeps for PT sites, for academic publishers and databases and for Xunlei (${DIRECT_SELECTIONS.join(', ')}), and of the captive portals and the pages of routers that the Local DNS Mapping module of this project knows.`,
+        `The domains are made of the lists that the community keeps for PT sites, for academic publishers and databases and for Xunlei (${DIRECT_SELECTIONS.map(listName).join(', ')}), and of the captive portals and the pages of routers that the Local DNS Mapping module of this project knows.`,
+        'Two lists that category-scholar-!cn includes are not in this file: Google Scholar (google-scholar), which is a part of google.com and goes with the Google ruleset, and Z-Library (z-library). Neither gives access by the IP of a campus, and mainland China blocks both.',
         'The processes and apps of the tools that must not be proxied (proxy tools, downloaders, ...) are not in any list of domains, they are collected by hand.',
         ...describeHandCollected(directs.handCollected)
       )

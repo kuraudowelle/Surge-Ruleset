@@ -229,11 +229,16 @@ describe('the Rule section of the README', () => {
     probes([
       // a hostname that is an exception inside a bigger ruleset
       { request: { hostname: 'captive.apple.com' }, first: 'non_ip/direct.conf', also: ['non_ip/apple_services.conf'] },
-      { request: { hostname: 'scholar.google.com' }, first: 'non_ip/direct.conf', also: ['non_ip/google.conf'] },
       { request: { hostname: 'www.google.com' }, first: 'non_ip/google.conf' },
       { request: { hostname: 'router.asus.com' }, first: 'non_ip/lan.conf' },
       // a university mirror that Download lists too is inside an academic domain that Direct lists
-      { request: { hostname: 'mirror.ox.ac.uk' }, first: 'non_ip/direct.conf', also: ['domainset/download.conf'] }
+      { request: { hostname: 'mirror.ox.ac.uk' }, first: 'non_ip/direct.conf', also: ['domainset/download.conf'] },
+      // the academic list of the community: a publisher and Sci-Hub go direct, and Google Scholar and Z-Library, which it
+      // has as well, are left out of Direct (mainland China blocks them) and go to Google and to Global
+      { request: { hostname: 'www.sciencedirect.com' }, first: 'non_ip/direct.conf', also: ['non_ip/global.conf'] },
+      { request: { hostname: 'sci-hub.st' }, first: 'non_ip/direct.conf', also: ['non_ip/global.conf'] },
+      { request: { hostname: 'scholar.google.com' }, first: 'non_ip/google.conf', not: ['non_ip/direct.conf'] },
+      { request: { hostname: 'z-library.sk' }, first: 'non_ip/global.conf', not: ['non_ip/direct.conf'] }
     ]);
 
     describe('a process that must never be proxied goes to Direct whatever the hostname, and the same hostname from another process does not', () => {
