@@ -258,7 +258,7 @@ describe('the Rule section of the README', () => {
       probes([
         // the app of a service is taken by a ruleset that stands in front of the ruleset of the service
         { request: { hostname: 'example.com', userAgent: 'YouTubeMusic/7.0 (iPhone)' }, first: 'non_ip/youtubemusic.conf' },
-        { request: { hostname: 'i.ytimg.com', userAgent: 'YouTubeMusic/7.0 (iPhone)' }, first: 'domainset/cdn.conf', also: ['non_ip/youtubemusic.conf', 'non_ip/youtube.conf'] },
+        { request: { hostname: 'googleads.g.doubleclick.net', userAgent: 'YouTubeMusic/7.0 (iPhone)' }, first: 'non_ip/reject.conf', also: ['non_ip/youtubemusic.conf'] },
         // a system process of Apple loses to a rule for a hostname in front of its ruleset, and wins over the ones behind it
         { request: { hostname: 'www.baidu.com', process: 'apsd' }, first: 'non_ip/apple_services.conf', also: ['non_ip/domestic.conf'] },
         { request: { hostname: 'www.baidu.com', process: 'Safari' }, first: 'non_ip/domestic.conf' },
@@ -268,15 +268,28 @@ describe('the Rule section of the README', () => {
     });
   });
 
-  describe('Speedtest and CDN stand in front of the services, which is a choice', () => {
+  describe('Speedtest stands in front of the services', () => {
+    probes([
+      { request: { hostname: 'www.speedtest.net' }, first: 'domainset/speedtest.conf' },
+      // the speed test of Netflix, which the list of all streaming services has as well
+      { request: { hostname: 'fast.com' }, first: 'domainset/speedtest.conf', also: ['non_ip/stream.conf'] }
+    ]);
+  });
+
+  describe('CDN stands behind the services, and in front of the lists of whole companies, which is a choice', () => {
     probes([
       // a CloudFront host that DAZN lists in stream.conf: cdn.conf has the whole of cloudfront.net
-      { request: { hostname: 'd151l6v8er5bdm.cloudfront.net' }, first: 'domainset/cdn.conf', also: ['non_ip/stream.conf'] },
-      { request: { hostname: 'd1sgwhnao7452x.cloudfront.net' }, first: 'domainset/cdn.conf', also: ['non_ip/stream.conf'] },
-      // the static hosts of a service
-      { request: { hostname: 'i.ytimg.com' }, first: 'domainset/cdn.conf', also: ['non_ip/youtube.conf', 'non_ip/google.conf'] },
-      { request: { hostname: 'raw.githubusercontent.com' }, first: 'domainset/cdn.conf', also: ['non_ip/github.conf'] },
-      { request: { hostname: 'www.speedtest.net' }, first: 'domainset/speedtest.conf' }
+      { request: { hostname: 'd151l6v8er5bdm.cloudfront.net' }, first: 'non_ip/stream.conf', also: ['domainset/cdn.conf'] },
+      { request: { hostname: 'd1sgwhnao7452x.cloudfront.net' }, first: 'non_ip/stream.conf', also: ['domainset/cdn.conf'] },
+      // the static hosts of a service, and hosts of a service that CDN lists and that are more than static files
+      { request: { hostname: 'i.ytimg.com' }, first: 'non_ip/youtube.conf', also: ['domainset/cdn.conf', 'non_ip/google.conf'] },
+      { request: { hostname: 'raw.githubusercontent.com' }, first: 'non_ip/github.conf', also: ['domainset/cdn.conf'] },
+      { request: { hostname: 'copilot-proxy.githubusercontent.com' }, first: 'non_ip/github.conf', also: ['non_ip/ai.conf', 'domainset/cdn.conf'] },
+      { request: { hostname: 'files.oaiusercontent.com' }, first: 'non_ip/ai.conf', also: ['domainset/cdn.conf'] },
+      { request: { hostname: 'fino.svc.litv.tv' }, first: 'non_ip/stream_tw.conf', also: ['non_ip/stream.conf', 'domainset/cdn.conf'] },
+      // the files of other sites, on the domains of a company
+      { request: { hostname: '1.bp.blogspot.com' }, first: 'domainset/cdn.conf', also: ['non_ip/google.conf'] },
+      { request: { hostname: 'ajax.aspnetcdn.com' }, first: 'domainset/cdn.conf', also: ['non_ip/microsoft.conf'] }
     ]);
   });
 
@@ -403,7 +416,9 @@ describe('the Rule section of the README', () => {
       'non_ip/apple_services.conf': ['DOMAIN-SUFFIX,apple.com'],
       'non_ip/apple_cn.conf': ['DOMAIN,cn.ls.apple.com'],
       'non_ip/direct.conf': ['PROCESS-NAME,aria2c'],
-      'domainset/cdn.conf': ['.cloudfront.net'],
+      // the files of other sites on blogspot.com, which the list of Google has as a whole
+      'non_ip/google.conf': ['DOMAIN-SUFFIX,blogspot.com'],
+      'domainset/cdn.conf': ['.cloudfront.net', '.bp.blogspot.com'],
       'domainset/download.conf': ['ghcr.io'],
       // GitHub Pages: the addresses that both of them list
       'ip/github.conf': ['IP-CIDR,185.199.108.0/22,no-resolve'],
@@ -434,6 +449,7 @@ describe('the Rule section of the README', () => {
         [{ hostname: 'cn.ls.apple.com' }, ['non_ip/apple_cn.conf', 'non_ip/apple_services.conf']],
         [{ hostname: 'www.hbogoasia.com' }, ['non_ip/stream_hk.conf', 'non_ip/stream_tw.conf', 'non_ip/stream.conf']],
         [{ hostname: 'd151l6v8er5bdm.cloudfront.net' }, ['domainset/cdn.conf', 'non_ip/stream.conf']],
+        [{ hostname: '1.bp.blogspot.com' }, ['domainset/cdn.conf', 'non_ip/google.conf']],
         [{ hostname: 'github.com' }, ['non_ip/github.conf', 'non_ip/homebrew.conf']],
         [{ hostname: 'ghcr.io' }, ['non_ip/github.conf', 'non_ip/homebrew.conf', 'domainset/download.conf']],
         [{ destIp: '185.199.108.153' }, ['ip/github.conf', 'ip/cdn.conf']]
@@ -485,10 +501,16 @@ describe('the Rule section of the README', () => {
       expect(firstOfFixtures({ hostname: 'api.github.com', process: 'aria2c' }, entries)).toEqual('non_ip/github.conf');
     });
 
-    it('sends the CloudFront host of DAZN to Streaming, if Streaming stands in front of CDN, and that is the other order that could be chosen', () => {
-      expect(firstOfFixtures({ hostname: 'd151l6v8er5bdm.cloudfront.net' })).toEqual('domainset/cdn.conf');
-      const entries = moved(active(), 'domainset/cdn.conf', 'after', 'non_ip/stream.conf');
-      expect(firstOfFixtures({ hostname: 'd151l6v8er5bdm.cloudfront.net' }, entries)).toEqual('non_ip/stream.conf');
+    it('sends the CloudFront host of DAZN to CDN, if CDN stands in front of Streaming, which is why it does not', () => {
+      expect(firstOfFixtures({ hostname: 'd151l6v8er5bdm.cloudfront.net' })).toEqual('non_ip/stream.conf');
+      const entries = moved(active(), 'domainset/cdn.conf', 'before', 'non_ip/stream.conf');
+      expect(firstOfFixtures({ hostname: 'd151l6v8er5bdm.cloudfront.net' }, entries)).toEqual('domainset/cdn.conf');
+    });
+
+    it('sends the files of other sites on blogspot.com to Google, if Google stands in front of CDN, which is why it does not', () => {
+      expect(firstOfFixtures({ hostname: '1.bp.blogspot.com' })).toEqual('domainset/cdn.conf');
+      const entries = moved(active(), 'non_ip/google.conf', 'before', 'domainset/cdn.conf');
+      expect(firstOfFixtures({ hostname: '1.bp.blogspot.com' }, entries)).toEqual('non_ip/google.conf');
     });
 
     it('sends all of github.com to Homebrew, if Homebrew stands in front of GitHub, which is why it does not', () => {
